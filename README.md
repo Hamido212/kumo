@@ -12,7 +12,7 @@ Website: [kumo.hyos.tech](https://kumo.hyos.tech) · Deutsche Kurzanleitung: [we
 
 ## Download
 
-1. Download `Kumo-Setup-0.2.4.exe` from the [releases page](../../releases/latest).
+1. Download `Kumo-Setup-1.1.0.exe` from the [releases page](../../releases/latest).
 2. Close Lively or Wallpaper Engine if they are running. Two wallpaper programs get in each
    other's way.
 3. Double-click the file. Kumo is not signed yet, so Windows warns about it:
@@ -223,7 +223,7 @@ scene shows.
 
 ## Kurzanleitung (Deutsch)
 
-1. `Kumo-Setup-0.2.4.exe` von der [Release-Seite](../../releases/latest) herunterladen.
+1. `Kumo-Setup-1.1.0.exe` von der [Release-Seite](../../releases/latest) herunterladen.
 2. Lively oder Wallpaper Engine beenden, falls sie laufen.
 3. Die Datei doppelklicken. Kumo ist noch nicht signiert, deshalb warnt Windows:
    * Im Browser **Behalten** wählen.

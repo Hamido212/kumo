@@ -1,6 +1,6 @@
 [package]
 name = "kumo"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 description = "A tiny, resource-friendly live wallpaper engine for Windows (Direct3D 11, no browser)"
 readme = "README.md"
