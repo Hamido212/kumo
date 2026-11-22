@@ -128,12 +128,16 @@ def load(path):
     im.load()
     notes = []
     icc = im.info.get("icc_profile")
+    if im.getexif().get(0x0112, 1) != 1:  # EXIF orientation: turn the pixels, as the metadata goes
+        from PIL import ImageOps
+        im = ImageOps.exif_transpose(im)
+        notes.append("turned upright as its EXIF orientation said")
     if im.mode in ("P", "L", "LA", "PA", "I", "I;16", "F", "CMYK"):
         im = im.convert("RGBA" if "A" in im.mode or "transparency" in im.info else "RGB")
     if im.mode == "RGBA":
         lo = im.getchannel("A").getextrema()[0]
         if lo < 255:  # partly transparent: shown on black, as a desktop shows it
-            notes.append("transparent areas filled with black")
+            notes.append("semi-transparent pixels laid over black")
             black = Image.new("RGBA", im.size, (0, 0, 0, 255))
             im = Image.alpha_composite(black, im)
         im = im.convert("RGB")
@@ -170,6 +174,30 @@ def encode(im, flat):
     return out, ext, q
 
 
+def strip_jpeg(data):
+    """A baseline JPEG without its metadata (EXIF, XMP, IPTC, an sRGB colour profile, comments),
+    losslessly: the image data stays byte for byte. None if the file is progressive or cannot be
+    walked, so it has to be encoded again. Only called when load() found no other colour profile."""
+    if data[:2] != b"\xff\xd8":
+        return None
+    out, i = bytearray(b"\xff\xd8"), 2
+    while i + 4 <= len(data) and data[i] == 0xFF:
+        marker = data[i + 1]
+        if marker == 0xFF:
+            i += 1
+            continue
+        length = int.from_bytes(data[i + 2:i + 4], "big")
+        segment = data[i:i + 2 + length]
+        if marker == 0xDA:  # start of scan: the rest is image data
+            return bytes(out + data[i:])
+        if marker in (0xC2, 0xC6, 0xCA, 0xCE):  # progressive: decoding it needs much more memory
+            return None
+        if not (0xE1 <= marker <= 0xEF or marker == 0xFE):  # keep everything but APP1-APP15 and COM
+            out += segment
+        i += 2 + length
+    return None
+
+
 def thumb(im):
     """480x270 JPEG preview, cropped to fill from the centre."""
     from PIL import Image
@@ -187,7 +215,10 @@ def changes_note(src_ext, w0, h0, w, h, ext, quality, notes):
     fmt = {"jpg": "JPEG", "png": "PNG", "webp": "WebP", "jxl": "JPEG XL"}
     q = f" (quality {quality})" if quality else ""
     parts = [f"resized from {w0}x{h0} to {w}x{h}"] if (w, h) != (w0, h0) else []
-    parts.append(f"converted from {fmt[src_ext]} to {fmt[ext]}{q}" if src_ext != ext else f"saved again as {fmt[ext]}{q}")
+    if src_ext != ext:
+        parts.append(f"converted from {fmt[src_ext]} to {fmt[ext]}{q}")
+    elif quality or ext == "png":  # encoded again; a JPEG kept as it was has no quality
+        parts.append(f"saved again as {fmt[ext]}{q}")
     parts += notes
     parts.append("metadata removed")
     return "Changes: " + ", ".join(parts) + "."
@@ -207,9 +238,13 @@ def build(args):
         raw = src.read_bytes()
         im, notes = load(src)
         w0, h0 = im.size
-        if im.width > MAX_WIDTH:
-            im = im.resize((MAX_WIDTH, round(im.height * MAX_WIDTH / im.width)), Image.LANCZOS)
-        out, ext, quality = encode(im, p.get("flat", False))
+        kept = strip_jpeg(raw) if src.suffix == ".jpg" and im.width <= MAX_WIDTH and not notes else None
+        if kept and len(kept) <= MAX_BYTES:  # a JPEG that fits: only the metadata goes
+            out, ext, quality = kept, "jpg", None
+        else:
+            if im.width > MAX_WIDTH:
+                im = im.resize((MAX_WIDTH, round(im.height * MAX_WIDTH / im.width)), Image.LANCZOS)
+            out, ext, quality = encode(im, p.get("flat", False))
         rel = f"pictures/{p['source']}/{p['id']}.{ext}"
         prev = f"thumbs/pictures/{p['id']}.jpg"
         for path, blob in ((rel, out), (prev, thumb(im))):

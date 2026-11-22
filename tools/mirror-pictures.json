@@ -720,6 +720,66 @@
    "download": "https://raw.githubusercontent.com/pop-os/wallpapers/20a9fdd1ed86aadfbbfcd55dc3d2d9eb8ae28e15/original/nick-nazzaro-underwater.png"
   },
   {
+   "id": "ubuntu-alpha-waves-dark-by-iryge",
+   "source": "ubuntu",
+   "title": "Alpha Waves (dark)",
+   "author": "iryge",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Alpha_Waves_Dark_by_iryge.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Alpha_Waves_Dark_by_iryge.png?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-alpha-waves-light-by-iryge",
+   "source": "ubuntu",
+   "title": "Alpha Waves (light)",
+   "author": "iryge",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Alpha_Waves_Light_by_iryge.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Alpha_Waves_Light_by_iryge.png?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-arizona-night-by-orbite-lambda",
+   "source": "ubuntu",
+   "title": "Arizona Night",
+   "author": "Orbite Lambda",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Arizona_night_by_Orbite_Lambda.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Arizona_night_by_Orbite_Lambda.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-ascending-waves-dark-by-iryge",
+   "source": "ubuntu",
+   "title": "Ascending Waves (dark)",
+   "author": "iryge",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Ascending_Waves_Dark_by_iryge.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Ascending_Waves_Dark_by_iryge.png?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-ascending-waves-light-by-iryge",
+   "source": "ubuntu",
+   "title": "Ascending Waves (light)",
+   "author": "iryge",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Ascending_Waves_Light_by_iryge.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Ascending_Waves_Light_by_iryge.png?h=ubuntu/stonking"
+  },
+  {
    "id": "ubuntu-atlantic-wave-by-gulfie",
    "source": "ubuntu",
    "title": "Atlantic Wave",
@@ -805,6 +865,18 @@
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Cramond_Island_by_Keanu_Kerr.jpg?h=ubuntu/stonking"
   },
   {
+   "id": "ubuntu-derwentwater-by-mendhak",
+   "source": "ubuntu",
+   "title": "Derwentwater",
+   "author": "mendhak",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Derwentwater_by_mendhak.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Derwentwater_by_mendhak.jpg?h=ubuntu/stonking"
+  },
+  {
    "id": "ubuntu-dsc2943-by-kcpru",
    "source": "ubuntu",
    "title": "DSC2943 (field path at sunset)",
@@ -815,6 +887,18 @@
    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
    "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/DSC2943_by_kcpru.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-einsamer-raum-by-orbite-lambda",
+   "source": "ubuntu",
+   "title": "Einsamer Raum",
+   "author": "Orbite Lambda",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Einsamer_Raum_by_Orbite_Lambda.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Einsamer_Raum_by_Orbite_Lambda.jpg?h=ubuntu/stonking"
   },
   {
    "id": "ubuntu-flower-gate-bridge-by-michele-agostini",
@@ -865,6 +949,18 @@
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/iryge-Anomaly.png?h=ubuntu/stonking"
   },
   {
+   "id": "ubuntu-luce-e-ombra-by-jacop02169",
+   "source": "ubuntu",
+   "title": "Luce e Ombra",
+   "author": "jacop02169",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Luce_e_Ombra_by_jacop02169.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Luce_e_Ombra_by_jacop02169.png?h=ubuntu/stonking"
+  },
+  {
    "id": "ubuntu-manuej-vor",
    "source": "ubuntu",
    "title": "Vor",
@@ -899,6 +995,18 @@
    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
    "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/mendhak-Red_Acer.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-michin-acuarium-by-jarsoca99",
+   "source": "ubuntu",
+   "title": "Michin Acuarium",
+   "author": "jarsoca99",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/michin_acuarium_by_jarsoca99.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/michin_acuarium_by_jarsoca99.jpg?h=ubuntu/stonking"
   },
   {
    "id": "ubuntu-milkyway-by-mizuno-as",
@@ -1022,6 +1130,42 @@
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Origin_of_nature_by_Julian_Tomasini.jpg?h=ubuntu/stonking"
   },
   {
+   "id": "ubuntu-oriole-by-julian-tomasini",
+   "source": "ubuntu",
+   "title": "Oriole",
+   "author": "Julian Tomasini",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Oriole_by_Julian_Tomasini.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Oriole_by_Julian_Tomasini.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-red-tone-dark-by-jdecroocq",
+   "source": "ubuntu",
+   "title": "Red Tone (dark)",
+   "author": "jdecroocq",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Red_Tone_Dark_by_jdecroocq.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Red_Tone_Dark_by_jdecroocq.png?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-red-tone-light-by-jdecroocq",
+   "source": "ubuntu",
+   "title": "Red Tone (light)",
+   "author": "jdecroocq",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Red_Tone_Light_by_jdecroocq.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Red_Tone_Light_by_jdecroocq.png?h=ubuntu/stonking"
+  },
+  {
    "id": "ubuntu-reflection-by-juliette-taka",
    "source": "ubuntu",
    "title": "Reflection",
@@ -1032,6 +1176,114 @@
    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
    "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Reflection_by_Juliette_Taka.png?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-staniel-cay-by-joseph-bylund",
+   "source": "ubuntu",
+   "title": "Staniel Cay",
+   "author": "Joseph Bylund",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Staniel_Cay_by_Joseph_Bylund.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Staniel_Cay_by_Joseph_Bylund.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-stingray-by-stephane93130",
+   "source": "ubuntu",
+   "title": "Stingray",
+   "author": "stephane93130",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Stingray_by_stephane93130.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Stingray_by_stephane93130.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-sunset-by-gabriele-fontana",
+   "source": "ubuntu",
+   "title": "Sunset",
+   "author": "Gabriele Fontana",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Sunset_by_Gabriele_Fontana.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Sunset_by_Gabriele_Fontana.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-sunset-of-peloponnesus-by-simos-xenitellis",
+   "source": "ubuntu",
+   "title": "Sunset of Peloponnesus",
+   "author": "Simos Xenitellis",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Sunset_of_Peloponnesus_by_Simos_Xenitellis.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Sunset_of_Peloponnesus_by_Simos_Xenitellis.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-sunset-over-lake-lugano-by-alexey-kulik",
+   "source": "ubuntu",
+   "title": "Sunset over Lake Lugano",
+   "author": "Alexey Kulik",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Sunset_Over_Lake_Lugano_by_Alexey_Kulik.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Sunset_Over_Lake_Lugano_by_Alexey_Kulik.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-tennis-ball-by-artem-kavalerov",
+   "source": "ubuntu",
+   "title": "Tennis Ball",
+   "author": "Artem Kavalerov",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Tennis_ball_by_Artem_Kavalerov.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Tennis_ball_by_Artem_Kavalerov.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-twisted-gradients-by-gustavo-brenner",
+   "source": "ubuntu",
+   "title": "Twisted Gradients",
+   "author": "Gustavo Brenner",
+   "category": "desktop",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Twisted_Gradients_by_Gustavo_Brenner.png?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Twisted_Gradients_by_Gustavo_Brenner.png?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-vale1ntin0omf-electric-veins-of-the-storm",
+   "source": "ubuntu",
+   "title": "Electric Veins of the Storm",
+   "author": "vale1ntin0omf",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/vale1ntin0omf-Electric_Veins_of_the_Storm.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/vale1ntin0omf-Electric_Veins_of_the_Storm.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-water-of-leith-by-keanu-kerr",
+   "source": "ubuntu",
+   "title": "Water of Leith",
+   "author": "Keanu Kerr",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Water_of_Leith_by_Keanu_Kerr.jpg?h=ubuntu/stonking",
+   "license": "CC BY-SA 4.0",
+   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Water_of_Leith_by_Keanu_Kerr.jpg?h=ubuntu/stonking"
   }
  ]
 }
