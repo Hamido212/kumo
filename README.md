@@ -85,8 +85,9 @@ its own copy of textures on top of that.
 * The same wallpaper everywhere, or a different one per screen, or none on a screen
 * Add files by dragging them into the window
 * Discover: free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, and (in versions
-  after 1.1.0) desktop art from KDE, Fedora, Pop!_OS and Ubuntu that we mirror on GitHub, each with
-  its source and licence, added to the library with one click (optional, goes online only after you agree)
+  after 1.1.0) desktop art from KDE, Fedora, Pop!_OS and Ubuntu, video loops and 3D scenes that we
+  mirror on GitHub, each with its source and licence, added to the library with one click
+  (optional, goes online only after you agree)
 * Time of day for 3D scenes: your clock, a fixed time or time-lapse
 * Fit (fill, fit, stretch) and playback speed for videos and pictures
 * 15, 30 or 60 fps, render resolution, edge smoothing
@@ -117,7 +118,7 @@ normal Windows wallpaper comes back.
 * **Online catalogue:** Discover is the only part of Kumo that uses the internet, and only after
   you open it and agree. It loads a list of wallpapers from kumo.hyos.tech, and each file comes
   straight from its source: NASA, ESA/Hubble, ESA/Webb, ESO or the Cleveland Museum of Art, or,
-  for desktop art from KDE, Fedora, Pop!_OS and Ubuntu, from our own mirror on GitHub
+  for desktop art from KDE, Fedora, Pop!_OS and Ubuntu, video loops and 3D scenes, from our own mirror on GitHub
   (raw.githubusercontent.com). Only public domain, CC0, CC BY 4.0 and CC BY-SA 4.0 works are
   listed, and each wallpaper shows its author, source and licence. You can switch it off again in the settings. How the catalogue
   is made, and how to report a problem with an item, is in [docs/discover.md](docs/discover.md).
