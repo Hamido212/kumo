@@ -1,6 +1,9 @@
 //! Kumo for macOS. Scene format, simulation and settings are the files of the Windows version;
 //! what differs is drawing (wgpu instead of Direct3D 11) and how a window gets behind the icons.
 
+#[path = "../../src/catalog.rs"]
+#[allow(dead_code)]
+mod catalog;
 #[path = "../../src/config.rs"]
 #[allow(dead_code)]
 mod config;
@@ -18,7 +21,29 @@ mod scene;
 mod world;
 
 mod gpu;
+#[allow(dead_code)]
+mod net;
 mod render;
+
+/// The shared library and catalogue code makes thumbnails; a Windows dev build of this crate
+/// has no ImageIO, so it makes none.
+#[cfg(not(target_os = "macos"))]
+#[allow(dead_code)]
+mod media {
+    use std::path::Path;
+
+    pub fn thumbnail_from_file(_src: &Path, _dst: &Path) -> Result<(), String> {
+        Err("no thumbnails in this build".into())
+    }
+
+    pub fn thumbnail_via_shell(_src: &Path, _dst: &Path) -> Result<(), String> {
+        Err("no thumbnails in this build".into())
+    }
+
+    pub fn image_size(_path: &Path) -> Result<(u32, u32), String> {
+        Err("no pictures in this build".into())
+    }
+}
 
 #[cfg(target_os = "macos")]
 mod autostart;

@@ -60,6 +60,69 @@ msgstr "Fortsetzen"
 msgid "Pause"
 msgstr "Pausieren"
 
+msgid "Download"
+msgstr "Herunterladen"
+
+msgid "Cancel download"
+msgstr "Download abbrechen"
+
+msgid "In library"
+msgstr "In der Bibliothek"
+
+msgid "Use"
+msgstr "Verwenden"
+
+msgid "Open source page"
+msgstr "Quellseite öffnen"
+
+msgid "License"
+msgstr "Lizenz"
+
+msgid "Show more"
+msgstr "Mehr anzeigen"
+
+msgid "Nothing here for this filter yet."
+msgstr "Für diesen Filter gibt es noch nichts."
+
+msgid "Discover"
+msgstr "Entdecken"
+
+msgid "Online catalogue"
+msgstr "Online-Katalog"
+
+msgid "Discover offers free wallpapers from sources such as NASA, ESA and art museums. To load previews and files, Kumo connects to kumo.hyos.tech and to the servers of these sources. Like any visit to a website, this transmits your IP address."
+msgstr "Entdecken bietet kostenlose Hintergründe von Quellen wie NASA, ESA und Kunstmuseen. Um Vorschaubilder und Dateien zu laden, verbindet sich Kumo mit kumo.hyos.tech und den Servern dieser Quellen. Dabei wird wie bei jedem Besuch einer Website deine IP-Adresse übertragen."
+
+msgid "Nothing is loaded before you agree. The wallpaper engine itself never goes online."
+msgstr "Bevor du zustimmst, wird nichts geladen. Der Live-Hintergrund selbst geht nie online."
+
+msgid "Open catalogue"
+msgstr "Katalog öffnen"
+
+msgid "Privacy policy"
+msgstr "Datenschutzerklärung"
+
+msgid "All"
+msgstr "Alle"
+
+msgid "Videos"
+msgstr "Videos"
+
+msgid "Pictures"
+msgstr "Bilder"
+
+msgid "Offline, showing the saved list."
+msgstr "Offline, du siehst die gespeicherte Liste."
+
+msgid "Try again"
+msgstr "Erneut versuchen"
+
+msgid "Loading the catalogue…"
+msgstr "Katalog wird geladen …"
+
+msgid "The catalogue could not be loaded."
+msgstr "Der Katalog konnte nicht geladen werden."
+
 msgid "Back"
 msgstr "Zurück"
 
@@ -83,6 +146,9 @@ msgstr "Bildschirm {}"
 
 msgid "Remove"
 msgstr "Entfernen"
+
+msgid "Credits"
+msgstr "Quellenangabe"
 
 msgid "Changes show on the desktop right away."
 msgstr "Änderungen werden sofort auf dem Desktop übernommen."
@@ -333,6 +399,9 @@ msgstr "{} · {} belegt"
 msgid "Open folder"
 msgstr "Ordner öffnen"
 
+msgid "Loads previews and files for Discover. Off deletes the saved list and previews."
+msgstr "Lädt Vorschaubilder und Dateien für Entdecken. Aus löscht die gespeicherte Liste und die Vorschaubilder."
+
 msgid "Troubleshooting"
 msgstr "Problembehandlung"
 
@@ -398,9 +467,6 @@ msgstr "Sparsame Live-Hintergründe für den Mac. 雲 (kumo) ist japanisch für 
 
 msgid "Lightweight live wallpapers for Windows. 雲 (kumo) is Japanese for “cloud”."
 msgstr "Leichtgewichtige Live-Hintergründe für Windows. 雲 (kumo) ist Japanisch für „Wolke“."
-
-msgid "License"
-msgstr "Lizenz"
 
 msgid "Free software under the GNU GPL v3. Built with Slint (GPL v3)."
 msgstr "Freie Software unter der GNU GPL v3. Erstellt mit Slint (GPL v3)."
@@ -569,9 +635,6 @@ msgstr "Deinstallieren"
 
 msgid "Next"
 msgstr "Weiter"
-
-msgid "Try again"
-msgstr "Erneut versuchen"
 
 msgid "Update"
 msgstr "Aktualisieren"

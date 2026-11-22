@@ -7,6 +7,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod autostart;
+// the online catalogue, used by the control panel's Discover page
+mod catalog;
 mod config;
 mod desktop;
 mod engine;
@@ -15,6 +17,7 @@ mod gfx;
 mod install;
 mod library;
 mod media;
+mod net;
 mod os;
 mod panel;
 mod render;

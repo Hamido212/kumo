@@ -3,15 +3,18 @@
 //! config.json and the library, then nudges the engine to reload. What differs per system is in
 //! `os`; this file is shared with the Mac version.
 
+use crate::catalog::{self, Catalog, Entry};
 use crate::config::{self, Config, Fit, Layout, PowerRule, TimeMode};
 use crate::library::{self, Item, Kind};
 use crate::{autostart, desktop, install, os, IdentifyWindow, PanelWindow, State};
 use slint::winit_030::{winit, EventResult, WinitWindowAccessor};
-use slint::{ComponentHandle, Image, ModelRc, Timer, TimerMode, VecModel};
+use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, Timer, TimerMode, VecModel};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 const LAPSE: [f32; 4] = [60.0, 240.0, 600.0, 2400.0];
@@ -130,6 +133,7 @@ struct Ctx {
     items: usize,
     config_time: Option<std::time::SystemTime>,
     identify: Vec<IdentifyWindow>,
+    disc: Discover,
 }
 
 impl Ctx {
@@ -186,6 +190,17 @@ fn meta(tr: &Tr, item: &Item) -> String {
     }
 }
 
+/// What each screen really shows: a wallpaper the engine could not load falls back to the pagoda.
+fn shown_wallpapers(cfg: &Config, mons: &[desktop::Monitor]) -> Vec<String> {
+    let failed = failed_wallpapers();
+    mons.iter()
+        .map(|m| {
+            let w = cfg.wallpaper_for(&m.id);
+            if failed.iter().any(|(id, _)| id == w) { config::BUILTIN_SCENE.to_string() } else { w.to_string() }
+        })
+        .collect()
+}
+
 fn refresh(app: &PanelWindow, ctx: &mut Ctx) {
     let st = app.global::<State>();
     let items = library::list();
@@ -194,18 +209,11 @@ fn refresh(app: &PanelWindow, ctx: &mut Ctx) {
     let tr = Tr(ctx.tr.0);
 
     // which screens show what
-    let failed = failed_wallpapers();
-    let shown: Vec<String> = mons
-        .iter()
-        .map(|m| {
-            let w = cfg.wallpaper_for(&m.id);
-            if failed.iter().any(|(id, _)| id == w) { config::BUILTIN_SCENE.to_string() } else { w.to_string() }
-        })
-        .collect();
+    let shown = shown_wallpapers(&cfg, &mons);
     let tiles: Vec<crate::TileData> = items
         .iter()
         .map(|it| {
-            let on: Vec<String> = shown.iter().enumerate().filter(|(_, w)| **w == it.id).map(|(i, _)| (i + 1).to_string()).collect();
+            let on = screens_showing(&shown, &it.id);
             let thumb = ctx.thumb(it);
             crate::TileData {
                 id: it.id.clone().into(),
@@ -215,11 +223,7 @@ fn refresh(app: &PanelWindow, ctx: &mut Ctx) {
                 has_thumb: thumb.is_some(),
                 thumb: thumb.unwrap_or_default(),
                 active: !on.is_empty(),
-                active_label: if on.is_empty() || (mons.len() > 1 && on.len() == mons.len()) || mons.len() <= 1 {
-                    tr.t("Aktiv", "Active").into()
-                } else {
-                    format!("{} · {}", tr.t("Aktiv", "Active"), on.join(", ")).into()
-                },
+                active_label: active_label(&on, mons.len(), &tr),
                 builtin: it.builtin,
             }
         })
@@ -316,7 +320,13 @@ fn refresh(app: &PanelWindow, ctx: &mut Ctx) {
     st.set_mac(cfg!(target_os = "macos"));
     st.set_library_size(size_text(install::data_size(), tr.0).into());
     st.set_version(env!("CARGO_PKG_VERSION").into());
+    st.set_online(cfg.online);
 
+    if ctx.disc.open {
+        discover_categories(app, ctx); // the language may have changed
+    }
+    discover_sync(app, ctx, &items, &shown);
+    discover_show(app, ctx);
     if !ctx.detail_id.is_empty() {
         fill_detail(app, ctx);
     }
@@ -372,6 +382,14 @@ fn fill_detail(app: &PanelWindow, ctx: &mut Ctx) {
         }
         .into(),
     );
+    let credits = Credits::of(&item, &tr);
+    st.set_detail_has_credits(credits.is_some());
+    let credits = credits.unwrap_or_default();
+    st.set_detail_credit(credits.line.into());
+    st.set_detail_license(credits.license.into());
+    st.set_detail_license_url(credits.license_url.into());
+    st.set_detail_source_name(credits.source.into());
+    st.set_detail_source_url(credits.source_url.into());
     let s = ctx.cfg.scene(&item.id);
     st.set_time_mode(match s.time {
         TimeMode::Real => 0,
@@ -543,6 +561,593 @@ fn import(weak: slint::Weak<PanelWindow>, ctx: Rc<RefCell<Ctx>>, files: Vec<Path
         });
     });
 }
+
+/// Screen numbers ("1", "2") that show `id`.
+fn screens_showing(shown: &[String], id: &str) -> Vec<String> {
+    shown.iter().enumerate().filter(|(_, w)| *w == id).map(|(i, _)| (i + 1).to_string()).collect()
+}
+
+/// "Active", or "Active · 2" when only some of several screens show it.
+fn active_label(on: &[String], screens: usize, tr: &Tr) -> SharedString {
+    if on.is_empty() || screens <= 1 || on.len() == screens {
+        tr.t("Aktiv", "Active").into()
+    } else {
+        format!("{} · {}", tr.t("Aktiv", "Active"), on.join(", ")).into()
+    }
+}
+
+// ---------------------------------------------------------------- links and credits
+
+/// A web link from untrusted data (the catalogue, a wallpaper.json) that may go to the browser:
+/// https, short, and nothing that a command line or the shell could read differently.
+pub(crate) fn safe_link(s: &str) -> Option<&str> {
+    let ok = s.starts_with("https://")
+        && s.len() > "https://".len()
+        && s.len() < 500
+        && !s.chars().any(|c| c.is_whitespace() || c.is_control() || matches!(c, '"' | '\'' | '`' | '\\' | '<' | '>'));
+    ok.then_some(s)
+}
+
+/// Opens a web link in the browser; anything that is not a safe link is ignored.
+fn open_link(s: &str) {
+    if let Some(url) = safe_link(s) {
+        os::open(url, None);
+    }
+}
+
+const PRIVACY_URL: &str = "https://kumo.hyos.tech/datenschutz";
+
+/// Who made a catalogue download and under which licence, for the detail page.
+#[derive(Default, Debug, PartialEq)]
+struct Credits {
+    line: String,
+    license: String,
+    /// empty unless it is a safe link
+    license_url: String,
+    source: String,
+    source_url: String,
+}
+
+impl Credits {
+    /// None for the user's own files and the built-in scene.
+    fn of(item: &Item, tr: &Tr) -> Option<Credits> {
+        let provenance = [&item.catalog_id, &item.license, &item.credit, &item.author, &item.source].iter().any(|s| !s.trim().is_empty());
+        if item.builtin || !provenance {
+            return None;
+        }
+        let line = match (item.credit.trim(), item.author.trim()) {
+            ("", "") => item.title.clone(),
+            ("", author) => format!("{}, {author}", item.title),
+            (credit, _) => credit.to_string(),
+        };
+        let source_url = safe_link(&item.source_url).unwrap_or_default().to_string();
+        let source = match item.source.trim() {
+            "" if !source_url.is_empty() => tr.t("Quellseite", "Source page").to_string(),
+            s => s.to_string(),
+        };
+        Some(Credits { line, license: item.license.trim().to_string(), license_url: safe_link(&item.license_url).unwrap_or_default().to_string(), source, source_url })
+    }
+}
+
+// ---------------------------------------------------------------- discover (online catalogue)
+
+const DISCOVER: i32 = 6;
+/// entries shown at first and added by "Show more"
+const PAGE: usize = 24;
+/// threads fetching previews at the same time
+const THUMB_WORKERS: usize = 2;
+
+/// The Discover page. Nothing here touches the network unless the user agreed (`cfg.online`)
+/// and the page is open; decoded previews exist only for the entries on screen.
+#[derive(Default)]
+struct Discover {
+    open: bool,
+    catalog: Option<Catalog>,
+    /// the server was asked once since the panel opened
+    refreshed: bool,
+    loading: bool,
+    /// why the catalogue could not be loaded (when there is no saved one)
+    error: String,
+    /// the last refresh failed and the saved list is shown
+    stale: bool,
+    kind: i32,
+    /// category id, empty for all
+    category: String,
+    /// category ids in the order of the chips
+    categories: Vec<String>,
+    /// how many entries the filter shows (grows with "Show more")
+    shown: usize,
+    /// the entries in the model, in order
+    rows: Vec<Entry>,
+    model: Option<Rc<VecModel<crate::DiscoverTile>>>,
+    /// bumped whenever the model is rebuilt or dropped, so late previews are ignored
+    gen: u64,
+    /// previews that could not be loaded; not asked for again while the panel is open
+    failed: HashSet<String>,
+    /// the one running download: entry id, cancel flag, progress
+    download: Option<(String, Arc<AtomicBool>, f32)>,
+}
+
+struct ThumbQueue {
+    jobs: VecDeque<(u64, Entry)>,
+    workers: usize,
+}
+
+static THUMBS: Mutex<ThumbQueue> = Mutex::new(ThumbQueue { jobs: VecDeque::new(), workers: 0 });
+
+fn thumb_queue() -> std::sync::MutexGuard<'static, ThumbQueue> {
+    THUMBS.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// The entries a filter shows: kind 0 all, 1 videos, 2 pictures; an empty category is all.
+fn filtered<'a>(items: &'a [Entry], kind: i32, category: &str) -> Vec<&'a Entry> {
+    items
+        .iter()
+        .filter(|e| match kind {
+            1 => e.kind == Kind::Video,
+            2 => e.kind == Kind::Image,
+            _ => true,
+        })
+        .filter(|e| category.is_empty() || e.category == category)
+        .collect()
+}
+
+/// How many of `total` entries to show, and whether "Show more" has anything left.
+fn page_of(total: usize, shown: usize) -> (usize, bool) {
+    let n = shown.max(PAGE).min(total);
+    (n, total > n)
+}
+
+/// The catalogue's categories that have at least one entry, in catalogue order.
+fn used_categories(cat: &Catalog) -> Vec<&catalog::Category> {
+    cat.categories.iter().filter(|c| cat.items.iter().any(|e| e.category == c.id)).collect()
+}
+
+/// "1080p" for videos, "3400 × 2270" for pictures, empty when unknown.
+fn resolution(e: &Entry) -> String {
+    match (e.kind, e.width, e.height) {
+        (_, 0, _) | (_, _, 0) => String::new(),
+        (Kind::Video, _, h) => format!("{h}p"),
+        (_, w, h) => format!("{w} × {h}"),
+    }
+}
+
+/// "1080p · 38,0 MB"
+fn entry_meta(e: &Entry, de: bool) -> String {
+    let size = if e.bytes > 0 { size_text(e.bytes, de) } else { String::new() };
+    [resolution(e), size].into_iter().filter(|s| !s.is_empty()).collect::<Vec<_>>().join(" · ")
+}
+
+/// "licence · author", the author left out when unknown. The licence comes first because the
+/// line is cut off on narrow tiles, and author names of space pictures run long.
+fn credit_line(e: &Entry) -> String {
+    match e.author.trim() {
+        "" => e.license.trim().to_string(),
+        a => format!("{} · {a}", e.license.trim()),
+    }
+}
+
+/// 0 can be downloaded, 1 downloading, 2 in the library.
+fn tile_state(installed: bool, downloading: bool) -> i32 {
+    if installed {
+        2
+    } else if downloading {
+        1
+    } else {
+        0
+    }
+}
+
+fn same_entry(a: &Entry, b: &Entry) -> bool {
+    a.id == b.id
+        && a.title == b.title
+        && a.kind == b.kind
+        && a.author == b.author
+        && a.category == b.category
+        && a.license == b.license
+        && a.license_url == b.license_url
+        && a.source == b.source
+        && a.source_url == b.source_url
+        && a.credit == b.credit
+        && a.thumb == b.thumb
+        && a.file == b.file
+        && a.bytes == b.bytes
+        && (a.width, a.height, a.duration) == (b.width, b.height, b.duration)
+        && a.codec == b.codec
+        && a.sha256 == b.sha256
+}
+
+/// Whether a freshly loaded catalogue shows the same as the one on screen.
+fn same_catalog(a: &Catalog, b: &Catalog) -> bool {
+    a.version == b.version
+        && a.updated == b.updated
+        && a.categories.len() == b.categories.len()
+        && a.categories.iter().zip(&b.categories).all(|(x, y)| x.id == y.id && x.title == y.title)
+        && a.items.len() == b.items.len()
+        && a.items.iter().zip(&b.items).all(|(x, y)| same_entry(x, y))
+}
+
+/// Library items that came from the catalogue, by catalogue id.
+fn installed(items: &[Item]) -> HashMap<&str, &Item> {
+    items.iter().filter(|i| !i.catalog_id.is_empty()).map(|i| (i.catalog_id.as_str(), i)).collect()
+}
+
+type Download = (String, Arc<AtomicBool>, f32);
+
+fn make_tile(e: &Entry, item: Option<&Item>, shown: &[String], download: Option<&Download>, tr: &Tr, thumb: Option<Image>) -> crate::DiscoverTile {
+    let on = item.map(|it| screens_showing(shown, &it.id)).unwrap_or_default();
+    let dl = download.filter(|d| d.0 == e.id);
+    crate::DiscoverTile {
+        id: e.id.as_str().into(),
+        title: e.title.as_str().into(),
+        credit: credit_line(e).into(),
+        meta: entry_meta(e, tr.0).into(),
+        kind: kind_index(e.kind),
+        has_thumb: thumb.is_some(),
+        thumb: thumb.unwrap_or_default(),
+        state: tile_state(item.is_some(), dl.is_some()),
+        progress: dl.map_or(0.0, |d| d.2),
+        item_id: item.map_or("", |i| i.id.as_str()).into(),
+        active: !on.is_empty(),
+        active_label: active_label(&on, shown.len(), tr),
+        source_url: safe_link(&e.source_url).unwrap_or_default().into(),
+        license_url: safe_link(&e.license_url).unwrap_or_default().into(),
+    }
+}
+
+/// Which view the page shows and the small flags around it.
+fn discover_show(app: &PanelWindow, c: &Ctx) {
+    let st = app.global::<State>();
+    let d = &c.disc;
+    let view = if !c.cfg.online {
+        0
+    } else if d.catalog.is_some() {
+        2
+    } else if d.loading || d.error.is_empty() {
+        1
+    } else {
+        3
+    };
+    st.set_discover_state(view);
+    st.set_discover_error(d.error.as_str().into());
+    st.set_discover_offline(view == 2 && d.stale);
+    st.set_discover_busy(d.download.is_some());
+}
+
+/// The category chips, in the panel's language.
+fn discover_categories(app: &PanelWindow, c: &mut Ctx) {
+    let st = app.global::<State>();
+    let lang = if c.tr.0 { "de" } else { "en" };
+    let (ids, titles): (Vec<String>, Vec<SharedString>) = match &c.disc.catalog {
+        Some(cat) => used_categories(cat).iter().map(|k| (k.id.clone(), SharedString::from(k.title(lang)))).unzip(),
+        None => Default::default(),
+    };
+    if !ids.contains(&c.disc.category) {
+        c.disc.category.clear();
+    }
+    st.set_discover_categories(ModelRc::new(VecModel::from(titles)));
+    st.set_discover_category(ids.iter().position(|i| *i == c.disc.category).map_or(0, |p| p as i32 + 1));
+    st.set_discover_kind(c.disc.kind);
+    c.disc.categories = ids;
+}
+
+/// Updates installed, active and download state of the tiles on screen, keeping their previews.
+fn discover_sync(_app: &PanelWindow, c: &mut Ctx, items: &[Item], shown: &[String]) {
+    let Some(model) = c.disc.model.clone() else { return };
+    let tr = Tr(c.tr.0);
+    let lib = installed(items);
+    for (i, e) in c.disc.rows.iter().enumerate() {
+        let Some(old) = model.row_data(i) else { continue };
+        let new = make_tile(e, lib.get(e.id.as_str()).copied(), shown, c.disc.download.as_ref(), &tr, old.has_thumb.then(|| old.thumb.clone()));
+        if new != old {
+            model.set_row_data(i, new);
+        }
+    }
+}
+
+fn discover_update(app: &PanelWindow, c: &mut Ctx) {
+    let shown = shown_wallpapers(&c.cfg, &desktop::monitors());
+    discover_sync(app, c, &library::list(), &shown);
+    discover_show(app, c);
+}
+
+/// A new model for the current filter; previews come from the disk cache or the network.
+fn discover_rebuild(app: &PanelWindow, c: &mut Ctx) {
+    c.disc.gen += 1;
+    thumb_queue().jobs.clear();
+    let st = app.global::<State>();
+    let Some(cat) = c.disc.catalog.as_ref() else {
+        discover_drop(app, c);
+        return;
+    };
+    let list = filtered(&cat.items, c.disc.kind, &c.disc.category);
+    let (n, more) = page_of(list.len(), c.disc.shown);
+    c.disc.shown = n.max(PAGE);
+    c.disc.rows = list[..n].iter().map(|e| (*e).clone()).collect();
+    let items = library::list();
+    let lib = installed(&items);
+    let shown = shown_wallpapers(&c.cfg, &desktop::monitors());
+    let tr = Tr(c.tr.0);
+    let tiles: Vec<crate::DiscoverTile> = c.disc.rows.iter().map(|e| make_tile(e, lib.get(e.id.as_str()).copied(), &shown, c.disc.download.as_ref(), &tr, None)).collect();
+    let model = Rc::new(VecModel::from(tiles));
+    st.set_discover_tiles(ModelRc::from(model.clone()));
+    st.set_discover_more(more);
+    c.disc.model = Some(model);
+    discover_thumbs(app, c, 0);
+}
+
+/// "Show more": adds the next entries to the model without touching the ones there.
+fn discover_more(app: &PanelWindow, c: &mut Ctx) {
+    let (Some(model), Some(cat)) = (c.disc.model.clone(), c.disc.catalog.as_ref()) else { return };
+    let list = filtered(&cat.items, c.disc.kind, &c.disc.category);
+    let from = c.disc.rows.len();
+    let (n, more) = page_of(list.len(), from + PAGE);
+    let items = library::list();
+    let lib = installed(&items);
+    let shown = shown_wallpapers(&c.cfg, &desktop::monitors());
+    let tr = Tr(c.tr.0);
+    for e in &list[from.min(n)..n] {
+        model.push(make_tile(e, lib.get(e.id.as_str()).copied(), &shown, c.disc.download.as_ref(), &tr, None));
+        c.disc.rows.push((*e).clone());
+    }
+    c.disc.shown = n;
+    app.global::<State>().set_discover_more(more);
+    discover_thumbs(app, c, from);
+}
+
+/// Drops the tiles and their decoded previews.
+fn discover_drop(app: &PanelWindow, c: &mut Ctx) {
+    c.disc.gen += 1;
+    thumb_queue().jobs.clear();
+    c.disc.model = None;
+    c.disc.rows = Vec::new();
+    c.disc.shown = 0;
+    let st = app.global::<State>();
+    st.set_discover_tiles(ModelRc::default());
+    st.set_discover_more(false);
+}
+
+/// Queues the previews of `rows[from..]` for at most two worker threads.
+fn discover_thumbs(app: &PanelWindow, c: &Ctx, from: usize) {
+    if !c.cfg.online || !c.disc.open {
+        return;
+    }
+    let mut q = thumb_queue();
+    for e in c.disc.rows.iter().skip(from).filter(|e| !c.disc.failed.contains(&e.id)) {
+        q.jobs.push_back((c.disc.gen, e.clone()));
+    }
+    while q.workers < THUMB_WORKERS && q.workers < q.jobs.len() {
+        q.workers += 1;
+        let weak = app.as_weak();
+        std::thread::spawn(move || thumb_worker(weak));
+    }
+}
+
+fn thumb_worker(weak: slint::Weak<PanelWindow>) {
+    loop {
+        let (gen, e) = {
+            let mut q = thumb_queue();
+            match q.jobs.pop_front() {
+                Some(job) => job,
+                None => {
+                    q.workers -= 1;
+                    return;
+                }
+            }
+        };
+        let result = catalog::thumb(&e).and_then(|p| std::fs::read(p).map_err(|x| x.to_string()));
+        let w = weak.clone();
+        let _ = slint::invoke_from_event_loop(move || thumb_arrived(w, gen, e.id, result));
+    }
+}
+
+/// One preview is there: update just that row.
+fn thumb_arrived(weak: slint::Weak<PanelWindow>, gen: u64, id: String, result: Result<Vec<u8>, String>) {
+    let Some(_app) = weak.upgrade() else { return };
+    let Some(ctx) = PANEL.with(|p| p.borrow().clone()) else { return };
+    let mut c = ctx.borrow_mut();
+    if !c.cfg.online {
+        // switched off while this preview was on its way: do not keep it
+        let _ = std::fs::remove_dir_all(catalog::cache_dir());
+        return;
+    }
+    let bytes = match result {
+        Ok(b) => b,
+        Err(why) => {
+            crate::log(&format!("kumo: no catalogue preview for {id}: {why}"));
+            c.disc.failed.insert(id);
+            return;
+        }
+    };
+    if c.disc.gen != gen {
+        return;
+    }
+    let Some(i) = c.disc.rows.iter().position(|e| e.id == id) else { return };
+    let Some(model) = c.disc.model.clone() else { return };
+    // decoded here, not through Slint's path cache, so leaving the page frees every preview
+    let Ok(img) = Image::load_from_data(&bytes, Some("jpg")) else {
+        c.disc.failed.insert(id);
+        return;
+    };
+    if let Some(mut t) = model.row_data(i) {
+        t.thumb = img;
+        t.has_thumb = true;
+        model.set_row_data(i, t);
+    }
+}
+
+fn discover_enter(app: &PanelWindow, c: &mut Ctx) {
+    if c.disc.open {
+        return;
+    }
+    c.disc.open = true;
+    discover_load(app, c);
+}
+
+fn discover_leave(app: &PanelWindow, c: &mut Ctx) {
+    if !c.disc.open {
+        return;
+    }
+    c.disc.open = false;
+    discover_drop(app, c);
+}
+
+/// Shows the saved list at once and asks the server for a newer one, once per panel.
+fn discover_load(app: &PanelWindow, c: &mut Ctx) {
+    if c.cfg.online && c.disc.open {
+        if c.disc.catalog.is_none() {
+            c.disc.catalog = catalog::cached();
+        }
+        discover_categories(app, c);
+        discover_rebuild(app, c);
+        if !c.disc.refreshed && !c.disc.loading {
+            discover_refresh(app, c);
+        }
+    }
+    discover_show(app, c);
+}
+
+fn discover_refresh(app: &PanelWindow, c: &mut Ctx) {
+    if !c.cfg.online || !c.disc.open || c.disc.loading {
+        return;
+    }
+    c.disc.loading = true;
+    c.disc.refreshed = true;
+    c.disc.error.clear();
+    discover_show(app, c);
+    let weak = app.as_weak();
+    std::thread::spawn(move || {
+        let result = catalog::refresh();
+        if result.is_ok() {
+            catalog::prune_cache();
+        }
+        let _ = slint::invoke_from_event_loop(move || {
+            let Some(app) = weak.upgrade() else { return };
+            let Some(ctx) = PANEL.with(|p| p.borrow().clone()) else { return };
+            let mut c = ctx.borrow_mut();
+            c.disc.loading = false;
+            if !c.cfg.online {
+                // switched off meanwhile: forget what just arrived
+                let _ = std::fs::remove_dir_all(catalog::cache_dir());
+                discover_show(&app, &c);
+                return;
+            }
+            match result {
+                Ok(cat) => {
+                    c.disc.stale = false;
+                    let changed = c.disc.catalog.as_ref().is_none_or(|old| !same_catalog(old, &cat));
+                    if changed {
+                        c.disc.catalog = Some(cat);
+                        if c.disc.open {
+                            discover_categories(&app, &mut c);
+                            discover_rebuild(&app, &mut c);
+                        }
+                    }
+                }
+                Err(e) => {
+                    crate::log(&format!("kumo: catalogue: {e}"));
+                    if c.disc.catalog.is_some() {
+                        c.disc.stale = true;
+                    } else {
+                        c.disc.error = e;
+                    }
+                }
+            }
+            discover_show(&app, &c);
+        });
+    });
+}
+
+/// Downloads one entry into the library. One at a time, so an entry can never be added twice.
+fn discover_download(app: &PanelWindow, c: &mut Ctx, id: &str) {
+    if c.disc.download.is_some() || !c.cfg.online {
+        return;
+    }
+    let Some(e) = c.disc.catalog.as_ref().and_then(|cat| cat.get(id)).cloned() else { return };
+    if library::by_catalog_id(&e.id).is_some() {
+        discover_update(app, c);
+        return;
+    }
+    let cancel = Arc::new(AtomicBool::new(false));
+    c.disc.download = Some((e.id.clone(), cancel.clone(), 0.0));
+    discover_update(app, c);
+    let weak = app.as_weak();
+    std::thread::spawn(move || {
+        let (w, mut last) = (weak.clone(), -1);
+        let mut progress = |part: f32| {
+            let percent = (part * 100.0) as i32;
+            if percent != last {
+                last = percent;
+                let w = w.clone();
+                let _ = slint::invoke_from_event_loop(move || download_progress(w, part));
+            }
+        };
+        let result = catalog::install(&e, &cancel, &mut progress);
+        let cancelled = cancel.load(Ordering::Relaxed);
+        let _ = slint::invoke_from_event_loop(move || download_done(weak, e.title, result, cancelled));
+    });
+}
+
+fn download_progress(weak: slint::Weak<PanelWindow>, part: f32) {
+    let Some(_app) = weak.upgrade() else { return };
+    let Some(ctx) = PANEL.with(|p| p.borrow().clone()) else { return };
+    let mut c = ctx.borrow_mut();
+    let Some(d) = c.disc.download.as_mut() else { return };
+    d.2 = part;
+    let id = d.0.clone();
+    if let (Some(model), Some(i)) = (c.disc.model.clone(), c.disc.rows.iter().position(|e| e.id == id)) {
+        if let Some(mut t) = model.row_data(i) {
+            t.progress = part;
+            model.set_row_data(i, t);
+        }
+    }
+}
+
+fn download_done(weak: slint::Weak<PanelWindow>, title: String, result: Result<Item, String>, cancelled: bool) {
+    let Some(app) = weak.upgrade() else { return };
+    let Some(ctx) = PANEL.with(|p| p.borrow().clone()) else { return };
+    let mut c = ctx.borrow_mut();
+    c.disc.download = None;
+    match result {
+        Ok(item) => crate::log(&format!("kumo: downloaded {} as {}", item.catalog_id, item.id)),
+        Err(_) if cancelled => {}
+        Err(e) => {
+            crate::log(&format!("kumo: download of {title} failed: {e}"));
+            let text = if c.tr.0 { format!("„{title}“ konnte nicht heruntergeladen werden. Grund: {e}") } else { format!("“{title}” could not be downloaded. Reason: {e}") };
+            c.info = Info::Message(3, text);
+        }
+    }
+    refresh(&app, &mut c);
+}
+
+/// The online catalogue was switched off: stop, forget the list and delete the cache.
+fn discover_forget(app: &PanelWindow, c: &mut Ctx) {
+    if let Some(d) = &c.disc.download {
+        d.1.store(true, Ordering::Relaxed);
+    }
+    discover_drop(app, c);
+    let (open, download) = (c.disc.open, c.disc.download.take());
+    c.disc = Discover { open, download, gen: c.disc.gen + 1, ..Discover::default() };
+    let _ = std::fs::remove_dir_all(catalog::cache_dir());
+    discover_categories(app, c);
+}
+
+/// The page changed (from the .slint side): open or close Discover.
+fn discover_page(weak: slint::Weak<PanelWindow>, ctx: Rc<RefCell<Ctx>>) {
+    let Some(app) = weak.upgrade() else { return };
+    if ctx.try_borrow_mut().is_err() {
+        // a callback is still running; look again right after it
+        Timer::single_shot(Duration::from_millis(1), move || discover_page(weak, ctx));
+        return;
+    }
+    let mut c = ctx.borrow_mut();
+    if app.global::<State>().get_page() == DISCOVER {
+        discover_enter(&app, &mut c);
+    } else {
+        discover_leave(&app, &mut c);
+    }
+}
+
 pub fn run_panel() {
     if os::focus_existing("Kumo") {
         return;
@@ -570,6 +1175,7 @@ pub fn run_panel() {
         items: 0,
         config_time: config_time(),
         identify: Vec::new(),
+        disc: Discover::default(),
     }));
     refresh(&app, &mut ctx.borrow_mut());
     PANEL.with(|p| *p.borrow_mut() = Some(ctx.clone()));
@@ -868,7 +1474,68 @@ pub fn run_panel() {
     st.on_uninstall(os::uninstall);
     st.on_open_license(|| open_text("Kumo-License.txt", include_str!("../LICENSE")));
     st.on_open_notices(|| open_text("Kumo-Third-Party-Notices.txt", os::NOTICES));
-    st.on_open_source(|| os::open("https://github.com/Hamido212/kumo", None));
+    st.on_open_source(|| open_link("https://github.com/Hamido212/kumo"));
+    st.on_open_link(|url| open_link(&url));
+    st.on_open_privacy(|| open_link(PRIVACY_URL));
+
+    // discover
+    let (w2, c2) = (weak.clone(), ctx.clone());
+    st.on_page_changed(move |_| discover_page(w2.clone(), c2.clone()));
+    let ch = change.clone();
+    st.on_discover_agree(move || {
+        ch(&|app, c| {
+            c.cfg.online = true;
+            discover_load(app, c);
+        })
+    });
+    let ch = change.clone();
+    st.on_online_changed(move || {
+        ch(&|app, c| {
+            c.cfg.online = app.global::<State>().get_online();
+            if !c.cfg.online {
+                discover_forget(app, c);
+            }
+        })
+    });
+    let (w2, c2) = (weak.clone(), ctx.clone());
+    st.on_discover_retry(move || {
+        let Some(app) = w2.upgrade() else { return };
+        let mut c = c2.borrow_mut();
+        c.disc.failed.clear();
+        if c.disc.catalog.is_some() {
+            discover_rebuild(&app, &mut c);
+        }
+        discover_refresh(&app, &mut c);
+    });
+    let (w2, c2) = (weak.clone(), ctx.clone());
+    st.on_discover_filter(move || {
+        let Some(app) = w2.upgrade() else { return };
+        let mut c = c2.borrow_mut();
+        let st = app.global::<State>();
+        c.disc.kind = st.get_discover_kind().clamp(0, 2);
+        let i = st.get_discover_category();
+        c.disc.category = if i > 0 { c.disc.categories.get(i as usize - 1).cloned().unwrap_or_default() } else { String::new() };
+        c.disc.shown = PAGE;
+        discover_rebuild(&app, &mut c);
+    });
+    let (w2, c2) = (weak.clone(), ctx.clone());
+    st.on_discover_show_more(move || {
+        if let Some(app) = w2.upgrade() {
+            discover_more(&app, &mut c2.borrow_mut());
+        }
+    });
+    let (w2, c2) = (weak.clone(), ctx.clone());
+    st.on_download(move |id| {
+        if let Some(app) = w2.upgrade() {
+            discover_download(&app, &mut c2.borrow_mut(), &id);
+        }
+    });
+    let c2 = ctx.clone();
+    st.on_cancel_download(move || {
+        if let Some(d) = &c2.borrow().disc.download {
+            d.1.store(true, Ordering::Relaxed);
+        }
+    });
 
     // drag & drop from Explorer
     let (w2, c2) = (weak.clone(), ctx.clone());
@@ -989,6 +1656,145 @@ mod tests {
         let items: Vec<String> = ["1", "2", "3"].map(String::from).to_vec();
         assert_eq!(list_text(&items, &Tr(true)), "1, 2 und 3");
         assert_eq!(list_text(&items[..1], &Tr(false)), "1");
+    }
+
+    fn entry(id: &str, kind: Kind, category: &str) -> Entry {
+        Entry { id: id.into(), title: id.into(), kind, category: category.into(), license: "CC0 1.0".into(), ..Entry::default() }
+    }
+
+    #[test]
+    fn only_safe_links_open() {
+        for good in ["https://kumo.hyos.tech/datenschutz", "https://creativecommons.org/licenses/by/4.0/", "https://example.org/a?b=c&d=%20e#f"] {
+            assert_eq!(safe_link(good), Some(good), "{good}");
+        }
+        let long = format!("https://example.org/{}", "a".repeat(480));
+        for bad in [
+            "",
+            "https://",
+            "http://example.org/",
+            "HTTPS://example.org/",
+            "javascript:alert(1)",
+            "file:///C:/Windows/System32/calc.exe",
+            "ms-settings:privacy",
+            " https://example.org/",
+            "https://example.org/a b",
+            "https://example.org/\ta",
+            "https://example.org/\n",
+            "https://example.org/\u{7}",
+            "https://example.org/\"&calc",
+            "https://example.org/'x",
+            "https://example.org/`x`",
+            "https://example.org\\..\\x",
+            "https://example.org/<script>",
+            "https://example.org/\u{a0}x",
+            long.as_str(),
+        ] {
+            assert_eq!(safe_link(bad), None, "{bad:?}");
+        }
+        assert!(safe_link(&long[..499]).is_some());
+    }
+
+    #[test]
+    fn filters_and_pages() {
+        let items = vec![entry("a", Kind::Video, "space"), entry("b", Kind::Image, "space"), entry("c", Kind::Image, "art"), entry("d", Kind::Scene, "art")];
+        let ids = |v: Vec<&Entry>| v.iter().map(|e| e.id.clone()).collect::<Vec<_>>().join("");
+        assert_eq!(ids(filtered(&items, 0, "")), "abcd");
+        assert_eq!(ids(filtered(&items, 1, "")), "a");
+        assert_eq!(ids(filtered(&items, 2, "")), "bc");
+        assert_eq!(ids(filtered(&items, 0, "art")), "cd");
+        assert_eq!(ids(filtered(&items, 2, "space")), "b");
+        assert_eq!(ids(filtered(&items, 1, "art")), "");
+        assert_eq!(ids(filtered(&items, 0, "unknown")), "");
+        // 24 at first, then 24 more each time
+        assert_eq!(page_of(10, 0), (10, false));
+        assert_eq!(page_of(30, 0), (24, true));
+        assert_eq!(page_of(30, 24), (24, true));
+        assert_eq!(page_of(30, 48), (30, false));
+        assert_eq!(page_of(48, 48), (48, false));
+        assert_eq!(page_of(0, 24), (0, false));
+        let cat = Catalog {
+            categories: vec![
+                catalog::Category { id: "space".into(), title: [("de".to_string(), "Weltraum".to_string())].into() },
+                catalog::Category { id: "empty".into(), ..Default::default() },
+                catalog::Category { id: "art".into(), ..Default::default() },
+            ],
+            items,
+            ..Catalog::default()
+        };
+        let used: Vec<&str> = used_categories(&cat).iter().map(|c| c.id.as_str()).collect();
+        assert_eq!(used, ["space", "art"]);
+    }
+
+    #[test]
+    fn tile_texts() {
+        let video = Entry { author: "NASA SVS".into(), width: 1920, height: 1080, bytes: 38 << 20, ..entry("v", Kind::Video, "") };
+        assert_eq!(entry_meta(&video, false), "1080p · 38.0 MB");
+        assert_eq!(entry_meta(&video, true), "1080p · 38,0 MB");
+        assert_eq!(credit_line(&video), "CC0 1.0 · NASA SVS");
+        let picture = Entry { width: 3400, height: 2270, bytes: 2_345_678, ..entry("p", Kind::Image, "") };
+        assert_eq!(entry_meta(&picture, false), "3400 × 2270 · 2.2 MB");
+        assert_eq!(credit_line(&picture), "CC0 1.0");
+        let unknown = Entry { width: 3400, ..entry("u", Kind::Image, "") };
+        assert_eq!(entry_meta(&unknown, false), "");
+        assert_eq!(entry_meta(&Entry { bytes: 3 << 30, ..unknown }, false), "3.0 GB");
+    }
+
+    #[test]
+    fn tile_states() {
+        assert_eq!(tile_state(false, false), 0);
+        assert_eq!(tile_state(false, true), 1);
+        assert_eq!(tile_state(true, false), 2);
+        assert_eq!(tile_state(true, true), 2);
+        let mine = Item { id: "x-1".into(), catalog_id: String::new(), ..Item::default() };
+        let got = Item { id: "y-2".into(), catalog_id: "y".into(), ..Item::default() };
+        let items = vec![mine, got];
+        let map = installed(&items);
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("y").map(|i| i.id.as_str()), Some("y-2"));
+        assert_eq!(screens_showing(&["a".into(), "y-2".into(), "y-2".into()], "y-2"), ["2", "3"]);
+        assert_eq!(active_label(&["2".into()], 3, &Tr(false)), "Active · 2");
+        assert_eq!(active_label(&["1".into(), "2".into()], 2, &Tr(true)), "Aktiv");
+        assert_eq!(active_label(&["1".into()], 1, &Tr(false)), "Active");
+    }
+
+    #[test]
+    fn credits_on_the_detail_page() {
+        let tr = Tr(false);
+        assert_eq!(Credits::of(&Item { title: "beach".into(), ..Item::default() }, &tr), None);
+        let mut item = Item {
+            title: "Wave".into(),
+            author: "Hokusai".into(),
+            license: "CC BY 4.0".into(),
+            license_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+            source: "Museum".into(),
+            source_url: "javascript:alert(1)".into(),
+            catalog_id: "wave".into(),
+            ..Item::default()
+        };
+        let c = Credits::of(&item, &tr).unwrap();
+        assert_eq!((c.line.as_str(), c.license.as_str(), c.source.as_str(), c.source_url.as_str()), ("Wave, Hokusai", "CC BY 4.0", "Museum", ""));
+        assert_eq!(c.license_url, "https://creativecommons.org/licenses/by/4.0/");
+        item.credit = "Hokusai, The Museum, CC BY 4.0".into();
+        item.source.clear();
+        item.source_url = "https://example.org/wave".into();
+        let c = Credits::of(&item, &tr).unwrap();
+        assert_eq!((c.line.as_str(), c.source.as_str(), c.source_url.as_str()), ("Hokusai, The Museum, CC BY 4.0", "Source page", "https://example.org/wave"));
+        item.builtin = true;
+        assert_eq!(Credits::of(&item, &tr), None);
+    }
+
+    #[test]
+    fn a_changed_catalogue_is_noticed() {
+        let a = Catalog { version: 1, updated: "1".into(), items: vec![entry("a", Kind::Image, "x")], ..Catalog::default() };
+        assert!(same_catalog(&a, &a.clone()));
+        let mut b = a.clone();
+        b.items[0].bytes = 5;
+        assert!(!same_catalog(&a, &b));
+        let mut b = a.clone();
+        b.items.push(entry("b", Kind::Image, "x"));
+        assert!(!same_catalog(&a, &b));
+        let b = Catalog { updated: "2".into(), ..a.clone() };
+        assert!(!same_catalog(&a, &b));
     }
 }
 

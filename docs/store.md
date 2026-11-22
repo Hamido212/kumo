@@ -112,3 +112,46 @@ Alle liegen in `package/store` und entstehen mit `tools/store_images.ps1`.
 | 1:1 Box art | `box-1080.png` oder `box-2160.png` |
 | 2:3 Poster art | `poster-720x1080.png` oder `poster-1440x2160.png` |
 | 1:1 App tile icon | `icon-300.png` |
+
+---
+
+## Ab der Version mit Entdecken (From the version with Discover)
+
+Die Texte für 1.0.0 oben bleiben, wie sie sind. Sobald eine Version mit dem Tab *Entdecken* (Online-Katalog, siehe [discover.md](discover.md)) eingereicht wird, ändern sich diese Angaben. Die Datenschutzerklärung auf der Website muss vorher mit dem neuen Abschnitt online sein.
+
+### Begründung für runFullTrust
+
+Nur der letzte Satz ändert sich:
+
+> Kumo is a Win32 live wallpaper engine written in Rust. It needs full trust to place a Direct3D 11 window behind the desktop icons, which requires re-parenting into the desktop window hierarchy, and to show a notification area icon, pause when windows cover the desktop and decode video through Media Foundation. None of this is possible in an app container. Kumo uses the network only for its optional Discover tab, and only after the user opens it and agrees: it then loads a catalogue of free wallpapers from kumo.hyos.tech and downloads the pictures and videos the user picks directly from their sources (NASA, ESA, ESO, the Cleveland Museum of Art). Kumo has no accounts and no telemetry.
+
+### Hinweise für die Prüfung
+
+> Kumo draws a live wallpaper behind the desktop icons as soon as it starts, and a control panel opens on the first start. It then keeps running with an icon in the notification area: right-click it to pause or quit. To test it, drag any MP4 or picture into the control panel. The Discover tab (Ctrl+4) asks before it connects to the internet; after you agree it shows free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, each with its source and licence, and adds one to the library with a click. No account or test data is needed.
+
+### Store-Eintrag
+
+Ein Satz für die Beschreibung, nach dem Absatz über eigene Videos und Bilder, und eine Zeile für die Funktionen:
+
+> Unter Entdecken findest du ausgewählte freie Hintergründe von NASA, ESA, ESO und dem Cleveland Museum of Art, jeweils mit Quelle und Lizenz. Kumo verbindet sich dafür erst mit dem Internet, wenn du es möchtest.
+>
+> Freie Hintergründe von NASA, ESA, ESO und dem Cleveland Museum of Art zum Entdecken
+
+> Discover hand-picked free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, each with its source and licence. Kumo only goes online for this when you want it to.
+>
+> Free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art to discover
+
+Die Zeile „Kein Konto, keine Werbung, keine Telemetrie“ bleibt richtig.
+
+### Altersfreigabe (IARC)
+
+Den Fragebogen neu ausfüllen. Die App lädt Inhalte aus dem Internet, aber nur aus dem eigenen, kuratierten Katalog: Landschaftsmalerei, japanische Holzschnitte, Weltraum-, Erd- und Nachthimmelaufnahmen. Es gibt keine Inhalte von Nutzern, keinen Austausch zwischen Nutzern, keinen freien Internetzugang und keine Käufe. Der Katalog ist familienfreundlich zusammengestellt (Regeln in [discover.md](discover.md)), deshalb bleibt die Freigabe unverändert niedrig.
+
+### Richtlinien, die das betrifft
+
+| Richtlinie | Was Kumo tut |
+|---|---|
+| 10.2.2 Kein nachgeladener Code | Der Katalog enthält nur ein JSON-Verzeichnis, Bilder und Videos. Kumo lädt und startet keinen Code. Auch spätere `.kumo`-Szenen sind Daten (Geometrie und Einstellungen), kein Code. |
+| 10.5.1 Datenschutzerklärung | Weil die App Netzwerkzugriff hat, muss die Datenschutzerklärung verlinkt sein und den Online-Katalog beschreiben: https://kumo.hyos.tech/datenschutz, Abschnitt „Online-Katalog in Kumo (Entdecken)“. |
+| 11.2 Rechte an Inhalten | Nur gemeinfreie Werke, CC0 und CC BY 4.0, mit Quelle, Urheber und Lizenz bei jedem Bild. Werke nur, wenn der Urheber vor mehr als 70 Jahren gestorben ist oder, bei unbekanntem Urheber, das Werk spätestens 1850 entstanden ist. Entfernen auf Anfrage innerhalb von 72 Stunden. Siehe [discover.md](discover.md). |
+| 11.11 Altersfreigabe | Die Freigabe muss auch heruntergeladene Inhalte abdecken. Der Katalog ist kuratiert und familienfreundlich, jede Version wird vor dem Veröffentlichen von Hand durchgesehen. |

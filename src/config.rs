@@ -124,6 +124,8 @@ pub struct Config {
     pub theme: String,
     /// "system", "de" or "en"
     pub language: String,
+    /// the user agreed to the online catalogue; until then Kumo makes no network request
+    pub online: bool,
 }
 
 impl Default for Config {
@@ -144,6 +146,7 @@ impl Default for Config {
             media: BTreeMap::new(),
             theme: "system".into(),
             language: "system".into(),
+            online: false,
         }
     }
 }
@@ -276,5 +279,16 @@ mod tests {
         assert_eq!(back.scene("x").petals, 0.5);
         assert_eq!(back.scene("x").time, TimeMode::Lapse);
         assert_eq!(back.on_battery, PowerRule::Pause);
+    }
+
+    #[test]
+    fn online_consent_defaults_to_off() {
+        let old: Config = serde_json::from_str(r#"{"fps": 30, "theme": "dark", "language": "de"}"#).unwrap();
+        assert!(!old.online);
+        assert!(!Config::default().online);
+        let c = Config { online: true, ..Config::default() };
+        let text = serde_json::to_string(&c).unwrap();
+        assert!(text.contains("\"online\":true"));
+        assert!(serde_json::from_str::<Config>(&text).unwrap().online);
     }
 }

@@ -67,6 +67,8 @@ its own copy of textures on top of that.
 * 3D scenes, videos (MP4, WebM, MKV and more, whatever Windows can decode) and pictures
 * The same wallpaper everywhere, or a different one per screen, or none on a screen
 * Add files by dragging them into the window
+* Discover: free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, each with its source and licence,
+  added to the library with one click (optional, goes online only after you agree)
 * Time of day for 3D scenes: your clock, a fixed time or time-lapse
 * Fit (fill, fit, stretch) and playback speed for videos and pictures
 * 15, 30 or 60 fps, render resolution, edge smoothing
@@ -78,8 +80,8 @@ its own copy of textures on top of that.
   with a clear message if a file cannot be shown
 
 **Keyboard:** Tab moves between controls, Enter or Space activates, arrow keys change segments
-and sliders, Esc goes back. `Ctrl+1`, `2`, `3` open Library, Screens and Performance, `Ctrl+,`
-opens Settings, `Ctrl+O` adds files, and the Menu key opens a wallpaper's menu.
+and sliders, Esc goes back. `Ctrl+1`, `2`, `3`, `4` open Library, Screens, Performance and
+Discover, `Ctrl+,` opens Settings, `Ctrl+O` adds files, and the Menu key opens a wallpaper's menu.
 
 **Tray icon:** left click opens Kumo, right click shows pause, time of day, frame rate and quit.
 Windows 11 may hide the icon behind the ^ arrow, and Kumo is always in the Start menu.
@@ -94,6 +96,11 @@ normal Windows wallpaper comes back.
 * **Wallpapers are copied** into `%LOCALAPPDATA%\Kumo\library`, so your originals can move.
 * **Settings** are in `%APPDATA%\Kumo\config.json`, logs in `kumo.log` and `panel.log` next to it.
 * **Animated GIFs are not supported yet.** Convert them to MP4.
+* **Online catalogue:** Discover is the only part of Kumo that uses the internet, and only after
+  you open it and agree. It loads a list of wallpapers from kumo.hyos.tech, and each file comes
+  straight from its source: NASA, ESA/Hubble, ESA/Webb, ESO or the Cleveland Museum of Art. Only public domain, CC0 and CC BY 4.0 works are listed, and each wallpaper shows
+  its author, source and licence. You can switch it off again in the settings. How the catalogue
+  is made, and how to report a problem with an item, is in [docs/discover.md](docs/discover.md).
 
 ### Command line
 
@@ -152,6 +159,8 @@ src/
   scene.rs      .kumo file format
   shaders.hlsl  all shaders (lighting matches three.js so scenes look like their preview)
   config.rs     config.json and autostart
+  net.rs        downloads over WinHTTP
+  catalog.rs    online catalogue for the Discover tab
   tray.rs       notification icon and menu
 ui/             the Slint windows and the design tokens
 lang/           German translation
@@ -160,7 +169,8 @@ assets/         baked scene, icon, pictures, third-party notices
 docs/design/    UI specification and mockup
 site/           the website (static files for Vercel, media rendered by tools/site_media.ps1)
 package/        the Microsoft Store package: manifest, logos, listing pictures (see docs/store.md)
-tools/          generators for the notices, the website media and the Store package
+tools/          generators for the notices, the website media, the Store package and the online
+                catalogue (tools/catalog.py, see docs/discover.md)
 ```
 
 ### The `.kumo` format

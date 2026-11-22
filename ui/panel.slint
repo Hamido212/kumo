@@ -16,6 +16,24 @@ export struct TileData {
     builtin: bool,
 }
 
+// One entry of the online catalogue on the Discover page.
+export struct DiscoverTile {
+    id: string,
+    title: string,
+    credit: string, // "author · licence"
+    meta: string, // "1080p · 38 MB"
+    kind: int,
+    thumb: image,
+    has-thumb: bool,
+    state: int, // 0 can be downloaded, 1 downloading, 2 in the library
+    progress: float, // 0..1 while downloading
+    item-id: string, // the library item once installed
+    active: bool,
+    active-label: string,
+    source-url: string,
+    license-url: string,
+}
+
 export struct ScreenData {
     label: string,
     name: string,
@@ -33,7 +51,7 @@ export struct ScreenData {
 }
 
 export global State {
-    in-out property <int> page: 0; // 0 library, 1 detail, 2 displays, 3 performance, 4 settings, 5 about
+    in-out property <int> page: 0; // 0 library, 1 detail, 2 displays, 3 performance, 4 settings, 5 about, 6 discover
     in property <[TileData]> tiles;
     in property <[ScreenData]> screens;
     in property <float> layout-aspect: 1.78;
@@ -58,6 +76,13 @@ export global State {
     in property <string> detail-source;
     in property <string> detail-memory;
     in property <string> detail-status;
+    // credits of a catalogue download (CC BY asks for them where the work is used)
+    in property <bool> detail-has-credits;
+    in property <string> detail-credit;
+    in property <string> detail-license;
+    in property <string> detail-license-url;
+    in property <string> detail-source-name;
+    in property <string> detail-source-url;
     in-out property <int> time-mode;
     in-out property <float> hour: 16.5;
     in-out property <int> lapse-index: 2;
@@ -90,7 +115,28 @@ export global State {
     in property <bool> dragging;
     in property <bool> drag-ok: true;
     in property <string> busy-text;
+    // discover (online catalogue)
+    in-out property <bool> online;
+    in property <int> discover-state; // 0 consent, 1 loading, 2 list, 3 error
+    in property <string> discover-error;
+    in property <bool> discover-offline;
+    in property <bool> discover-busy;
+    in property <bool> discover-more;
+    in property <[DiscoverTile]> discover-tiles;
+    in property <[string]> discover-categories;
+    in-out property <int> discover-kind; // 0 all, 1 videos, 2 pictures
+    in-out property <int> discover-category; // 0 all, else categories[i - 1]
 
+    callback page-changed(int);
+    callback discover-agree();
+    callback discover-retry();
+    callback discover-filter();
+    callback discover-show-more();
+    callback download(string);
+    callback cancel-download();
+    callback open-link(string);
+    callback open-privacy();
+    callback online-changed();
     callback apply(string, int); // wallpaper id, screen index (-1 = every screen)
     callback customize(string);
     callback remove(string);
@@ -605,6 +651,500 @@ component LibraryPage inherits Rectangle {
     }
 }
 
+// ---------------------------------------------------------------- discover
+
+component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked;
+    height: 32px;
+    min-width: cl.preferred-width + 28px;
+    horizontal-stretch: 0;
+    border-radius: 16px;
+    background: root.selected ? Theme.accent-tint : ca.has-hover ? Theme.control-hover : Theme.control;
+    border-width: 1px;
+    border-color: root.selected ? Theme.accent : Theme.control-stroke;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checkable: true;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+    cl := Text {
+        text: root.text;
+        color: root.selected ? Theme.accent : Theme.text;
+        font-weight: root.selected ? 600 : 400;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+    }
+    ca := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    KeyFocus {
+        radius: 16px;
+        activated => { root.clicked(); }
+    }
+}
+
+component DiscoverCard inherits Rectangle {
+    in property <DiscoverTile> data;
+    property <length> thumb-h: root.width * 9 / 16;
+    border-radius: 8px;
+    background: Theme.card;
+    border-width: root.data.active ? 2px : 1px;
+    border-color: root.data.active ? Theme.accent : Theme.stroke;
+    accessible-role: groupbox;
+    accessible-label: root.data.title + ", " + root.data.credit + (root.data.active ? ", " + root.data.active-label : "");
+    TouchArea {
+        pointer-event(e) => {
+            if (e.button == PointerEventButton.right && e.kind == PointerEventKind.up) {
+                menu.show();
+            }
+        }
+    }
+    VerticalLayout {
+        padding: root.data.active ? 1px : 0px;
+        Rectangle {
+            height: root.thumb-h;
+            border-top-left-radius: 7px;
+            border-top-right-radius: 7px;
+            clip: true;
+            Thumb {
+                source: root.data.thumb;
+                has-image: root.data.has-thumb;
+                kind: root.data.kind;
+            }
+            if root.data.active: Rectangle {
+                x: 8px;
+                y: 8px;
+                height: 20px;
+                width: pill.preferred-width + 16px;
+                border-radius: 10px;
+                background: Theme.accent;
+                pill := Text {
+                    text: root.data.active-label;
+                    color: Theme.accent-text;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+            }
+            // in the library: the picture opens its settings, as in the library
+            if root.data.state == 2: Rectangle {
+                accessible-role: button;
+                accessible-label: @tr("Customize…") + " " + root.data.title;
+                accessible-action-default => { State.customize(root.data.item-id); }
+                TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { State.customize(root.data.item-id); }
+                }
+                KeyFocus {
+                    activated => { State.customize(root.data.item-id); }
+                    context => { menu.show(); }
+                }
+            }
+        }
+        VerticalLayout {
+            padding-left: 12px;
+            padding-right: 6px;
+            padding-top: 6px;
+            padding-bottom: 8px;
+            spacing: 2px;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 4px;
+                Text {
+                    text: root.data.title;
+                    font-weight: 600;
+                    overflow: elide;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Btn {
+                    icon: "\u{E712}";
+                    subtle: true;
+                    width: 28px;
+                    height: 28px;
+                    tooltip: @tr("More options");
+                    clicked => { menu.show(); }
+                }
+            }
+            Text {
+                text: root.data.credit;
+                font-size: 12px;
+                color: Theme.text2;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                height: 28px;
+                spacing: 6px;
+                padding-top: 2px;
+                // can be downloaded
+                if root.data.state == 0: Icon {
+                    text: root.data.kind == 1 ? "\u{E714}" : root.data.kind == 2 ? "\u{E91B}" : "\u{E753}";
+                    font-size: 12px;
+                    color: Theme.text2;
+                    width: 12px;
+                }
+                if root.data.state == 0: Text {
+                    text: root.data.meta;
+                    font-size: 12px;
+                    color: Theme.text2;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                if root.data.state == 0: Btn {
+                    primary: true;
+                    icon: "\u{E896}";
+                    text: root.width >= 280px ? @tr("Download") : "";
+                    tooltip: @tr("Download");
+                    height: 28px;
+                    enabled: !State.discover-busy;
+                    clicked => { State.download(root.data.id); }
+                }
+                // downloading
+                if root.data.state == 1: VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Rectangle {
+                        height: 4px;
+                        border-radius: 2px;
+                        background: Theme.track;
+                        accessible-role: progress-indicator;
+                        accessible-label: @tr("Download");
+                        accessible-value: Math.round(root.data.progress * 100) + " %";
+                        accessible-value-minimum: 0;
+                        accessible-value-maximum: 100;
+                        Rectangle {
+                            x: 0px;
+                            width: parent.width * max(0, min(1, root.data.progress));
+                            border-radius: 2px;
+                            background: Theme.accent;
+                        }
+                    }
+                }
+                if root.data.state == 1: Text {
+                    text: Math.round(root.data.progress * 100) + " %";
+                    font-size: 12px;
+                    color: Theme.text2;
+                    vertical-alignment: center;
+                    width: 36px;
+                    horizontal-alignment: right;
+                }
+                if root.data.state == 1: Btn {
+                    icon: "\u{E711}";
+                    subtle: true;
+                    width: 28px;
+                    height: 28px;
+                    tooltip: @tr("Cancel download");
+                    clicked => { State.cancel-download(); }
+                }
+                // in the library
+                if root.data.state == 2: Icon {
+                    text: "\u{E73E}";
+                    font-size: 12px;
+                    color: Theme.success;
+                    width: 12px;
+                }
+                if root.data.state == 2: Text {
+                    text: @tr("In library");
+                    font-size: 12px;
+                    color: Theme.text2;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                if root.data.state == 2 && !root.data.active: Btn {
+                    text: @tr("Use");
+                    height: 28px;
+                    clicked => { State.apply(root.data.item-id, -1); }
+                }
+            }
+        }
+    }
+    menu := PopupWindow {
+        x: root.width - 248px;
+        y: root.thumb-h + 34px;
+        width: 260px;
+        forward-focus: first-row;
+        FocusScope {
+        focus-on-tab-navigation: false;
+        focus-on-click: false;
+        key-pressed(e) => {
+            if (e.text == Key.Escape) {
+                menu.close();
+                return accept;
+            }
+            return reject;
+        }
+        Rectangle {
+            background: Theme.card;
+            border-radius: 8px;
+            border-width: 1px;
+            border-color: Theme.control-stroke;
+            drop-shadow-blur: 16px;
+            drop-shadow-color: #00000044;
+            VerticalLayout {
+                padding: 4px;
+                spacing: 0px;
+                first-row := MenuRow {
+                    icon: "\u{E774}";
+                    text: @tr("Open source page");
+                    enabled: root.data.source-url != "";
+                    clicked => {
+                        menu.close();
+                        State.open-link(root.data.source-url);
+                    }
+                }
+                MenuRow {
+                    icon: "\u{E943}";
+                    text: @tr("License");
+                    enabled: root.data.license-url != "";
+                    clicked => {
+                        menu.close();
+                        State.open-link(root.data.license-url);
+                    }
+                }
+                if root.data.state == 2: MenuRow {
+                    icon: "\u{E771}";
+                    text: @tr("Customize…");
+                    clicked => {
+                        menu.close();
+                        State.customize(root.data.item-id);
+                    }
+                }
+            }
+        }
+        }
+    }
+}
+
+component DiscoverGrid inherits Rectangle {
+    property <length> gap: 12px;
+    property <int> cols: max(1, Math.floor((sv.visible-width - 24px + root.gap) / (200px + root.gap)));
+    property <length> tile-w: (sv.visible-width - 48px - (root.cols - 1) * root.gap) / root.cols;
+    property <length> tile-h: root.tile-w * 9 / 16 + 90px;
+    property <int> rows: Math.ceil(State.discover-tiles.length / root.cols);
+    sv := ScrollView {
+        content-width: self.visible-width;
+        content-height: root.rows * (root.tile-h + root.gap) + (State.discover-more ? 64px : 12px);
+        for t[i] in State.discover-tiles: DiscoverCard {
+            x: 24px + Math.mod(i, root.cols) * (root.tile-w + root.gap);
+            y: Math.floor(i / root.cols) * (root.tile-h + root.gap);
+            width: root.tile-w;
+            height: root.tile-h;
+            data: t;
+        }
+        if State.discover-more: HorizontalLayout {
+            x: 0px;
+            y: root.rows * (root.tile-h + root.gap) + 4px;
+            width: sv.visible-width;
+            height: 32px;
+            alignment: center;
+            Btn {
+                text: @tr("Show more");
+                clicked => { State.discover-show-more(); }
+            }
+        }
+        if State.discover-tiles.length == 0: Text {
+            x: 24px;
+            y: 8px;
+            width: sv.visible-width - 48px;
+            text: @tr("Nothing here for this filter yet.");
+            color: Theme.text2;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component DiscoverPage inherits Rectangle {
+    // before the user agreed: one calm card, nothing goes online
+    if State.discover-state == 0: ScrollView {
+        VerticalLayout {
+            alignment: start;
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 20px;
+            padding-bottom: 24px;
+            spacing: 4px;
+            PageHeader { title: @tr("Discover"); }
+            Rectangle { height: 12px; }
+            Rectangle {
+                border-radius: 8px;
+                background: Theme.card;
+                border-width: 1px;
+                border-color: Theme.stroke;
+                VerticalLayout {
+                    padding: 24px;
+                    spacing: 12px;
+                    HorizontalLayout {
+                        spacing: 12px;
+                        Icon {
+                            text: "\u{E774}";
+                            font-size: 24px;
+                            width: 24px;
+                            color: Theme.accent;
+                        }
+                        Text {
+                            text: @tr("Online catalogue");
+                            font-size: 20px;
+                            font-weight: 600;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                            wrap: word-wrap;
+                        }
+                    }
+                    Text {
+                        text: @tr("Discover offers free wallpapers from sources such as NASA, ESA and art museums. To load previews and files, Kumo connects to kumo.hyos.tech and to the servers of these sources. Like any visit to a website, this transmits your IP address.");
+                        color: Theme.text;
+                        wrap: word-wrap;
+                    }
+                    Text {
+                        text: @tr("Nothing is loaded before you agree. The wallpaper engine itself never goes online.");
+                        color: Theme.text2;
+                        wrap: word-wrap;
+                    }
+                    HorizontalLayout {
+                        spacing: 20px;
+                        alignment: start;
+                        padding-top: 4px;
+                        Btn {
+                            primary: true;
+                            icon: "\u{E774}";
+                            text: @tr("Open catalogue");
+                            clicked => { State.discover-agree(); }
+                        }
+                        LinkBtn {
+                            text: @tr("Privacy policy");
+                            clicked => { State.open-privacy(); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if State.discover-state != 0: VerticalLayout {
+        HorizontalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 20px;
+            padding-bottom: 12px;
+            PageHeader {
+                title: @tr("Discover");
+                if State.discover-state == 2: VerticalLayout {
+                    alignment: center;
+                    Segmented {
+                        items: [@tr("All"), @tr("Videos"), @tr("Pictures")];
+                        selected <=> State.discover-kind;
+                        picked => { State.discover-filter(); }
+                    }
+                }
+            }
+        }
+        if State.discover-state == 2: HorizontalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-bottom: State.discover-offline ? 8px : 16px;
+            Flickable {
+                height: 32px;
+                horizontal-stretch: 1;
+                content-width: chips.preferred-width;
+                chips := HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    Chip {
+                        text: @tr("All");
+                        selected: State.discover-category == 0;
+                        clicked => {
+                            State.discover-category = 0;
+                            State.discover-filter();
+                        }
+                    }
+                    for c[i] in State.discover-categories: Chip {
+                        text: c;
+                        selected: State.discover-category == i + 1;
+                        clicked => {
+                            State.discover-category = i + 1;
+                            State.discover-filter();
+                        }
+                    }
+                }
+            }
+        }
+        if State.discover-offline: HorizontalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-bottom: 12px;
+            spacing: 8px;
+            alignment: start;
+            Icon {
+                text: "\u{E7BA}";
+                font-size: 12px;
+                color: Theme.caution;
+                width: 12px;
+            }
+            Text {
+                text: @tr("Offline, showing the saved list.");
+                font-size: 12px;
+                color: Theme.text2;
+                vertical-alignment: center;
+            }
+            LinkBtn {
+                text: @tr("Try again");
+                font-size: 12px;
+                clicked => { State.discover-retry(); }
+            }
+        }
+        if State.discover-state == 1: VerticalLayout {
+            vertical-stretch: 1;
+            alignment: center;
+            Text {
+                text: @tr("Loading the catalogue…");
+                color: Theme.text2;
+                horizontal-alignment: center;
+            }
+        }
+        if State.discover-state == 3: VerticalLayout {
+            vertical-stretch: 1;
+            alignment: center;
+            padding-left: 48px;
+            padding-right: 48px;
+            spacing: 8px;
+            Icon {
+                text: "\u{E774}";
+                font-size: 32px;
+                color: Theme.text2;
+            }
+            Text {
+                text: @tr("The catalogue could not be loaded.");
+                font-size: 16px;
+                font-weight: 600;
+                color: Theme.text;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            Text {
+                text: State.discover-error;
+                font-size: 12px;
+                color: Theme.text2;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            HorizontalLayout {
+                alignment: center;
+                padding-top: 8px;
+                Btn {
+                    text: @tr("Try again");
+                    clicked => { State.discover-retry(); }
+                }
+            }
+        }
+        if State.discover-state == 2: DiscoverGrid { vertical-stretch: 1; }
+    }
+}
+
 component DetailPage inherits Rectangle {
     ScrollView {
         VerticalLayout {
@@ -723,6 +1263,68 @@ component DetailPage inherits Rectangle {
                     subtle: true;
                     text: @tr("Remove");
                     clicked => { State.remove(State.detail.id); }
+                }
+            }
+            if State.detail-has-credits: VerticalLayout {
+                spacing: 4px;
+                padding-top: 20px;
+                SectionTitle { text: @tr("Credits"); }
+                Rectangle { height: 4px; }
+                Rectangle {
+                    border-radius: 8px;
+                    background: Theme.card;
+                    border-width: 1px;
+                    border-color: Theme.stroke;
+                    VerticalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        padding-top: 12px;
+                        padding-bottom: 12px;
+                        spacing: 6px;
+                        Text {
+                            text: State.detail-credit;
+                            color: Theme.text;
+                            wrap: word-wrap;
+                        }
+                        if State.detail-license != "": HorizontalLayout {
+                            spacing: 16px;
+                            Text { text: @tr("License"); font-size: 12px; color: Theme.text2; width: 72px; vertical-alignment: center; }
+                            if State.detail-license-url != "": HorizontalLayout {
+                                alignment: start;
+                                LinkBtn {
+                                    text: State.detail-license;
+                                    font-size: 12px;
+                                    clicked => { State.open-link(State.detail-license-url); }
+                                }
+                            }
+                            if State.detail-license-url == "": Text {
+                                text: State.detail-license;
+                                font-size: 12px;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                        if State.detail-source-name != "": HorizontalLayout {
+                            spacing: 16px;
+                            Text { text: @tr("Source"); font-size: 12px; color: Theme.text2; width: 72px; vertical-alignment: center; }
+                            if State.detail-source-url != "": HorizontalLayout {
+                                alignment: start;
+                                LinkBtn {
+                                    text: State.detail-source-name;
+                                    font-size: 12px;
+                                    clicked => { State.open-link(State.detail-source-url); }
+                                }
+                            }
+                            if State.detail-source-url == "": Text {
+                                text: State.detail-source-name;
+                                font-size: 12px;
+                                color: Theme.text;
+                                vertical-alignment: center;
+                                horizontal-stretch: 1;
+                            }
+                        }
+                    }
                 }
             }
             Rectangle { height: 20px; }
@@ -1294,6 +1896,16 @@ component SettingsPage inherits Rectangle {
                     }
                 }
             }
+            Card {
+                icon: "\u{E774}";
+                title: @tr("Online catalogue");
+                description: @tr("Loads previews and files for Discover. Off deletes the saved list and previews.");
+                Toggle {
+                    label: @tr("Online catalogue");
+                    checked <=> State.online;
+                    toggled => { State.online-changed(); }
+                }
+            }
             Rectangle { height: 20px; }
             SectionTitle { text: @tr("Troubleshooting"); }
             Rectangle { height: 4px; }
@@ -1489,6 +2101,10 @@ export component PanelWindow inherits Window {
         State.page = page;
     }
 
+    // the Discover page loads and frees its pictures when it opens and closes
+    property <int> current-page: State.page;
+    changed current-page => { State.page-changed(self.current-page); }
+
     keys := FocusScope {
     focus-on-tab-navigation: false;
     focus-on-click: false;
@@ -1502,8 +2118,8 @@ export component PanelWindow inherits Window {
             return accept;
         }
         if (e.modifiers.control) {
-            if (e.text == "1" || e.text == "2" || e.text == "3") {
-                root.go(e.text == "1" ? 0 : e.text == "2" ? 2 : 3);
+            if (e.text == "1" || e.text == "2" || e.text == "3" || e.text == "4") {
+                root.go(e.text == "1" ? 0 : e.text == "2" ? 2 : e.text == "3" ? 3 : 6);
                 return accept;
             }
             if (e.text == ",") {
@@ -1551,6 +2167,12 @@ export component PanelWindow inherits Window {
                 label: @tr("Library");
                 selected: State.page <= 1;
                 clicked => { root.go(0); }
+            }
+            NavItem {
+                icon: "\u{E774}";
+                label: @tr("Discover");
+                selected: State.page == 6;
+                clicked => { root.go(6); }
             }
             NavItem {
                 icon: "\u{E7F4}";
@@ -1645,6 +2267,7 @@ export component PanelWindow inherits Window {
                 if State.page == 3: PerformancePage { vertical-stretch: 1; }
                 if State.page == 4: SettingsPage { vertical-stretch: 1; }
                 if State.page == 5: AboutPage { vertical-stretch: 1; }
+                if State.page == 6: DiscoverPage { vertical-stretch: 1; }
             }
             if State.dragging: Rectangle {
                 background: State.drag-ok ? Theme.accent-tint : Theme.critical-bg;

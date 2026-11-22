@@ -1,0 +1,64 @@
+# Items kept out of the online catalogue by hand. Read by tools/catalog.py build.
+# One id per line removes the item. "<id> revoked" keeps it in the catalogue marked as revoked,
+# so apps that already downloaded it can remove it too (use this for takedown requests).
+# Add the reason and the date as a comment, for example:
+#   cma-1948-306  # 2026-11-22 preview shows a mount, not the print
+
+esawebb-potm2509a  # 2026-11-22 a mosaic of eight small panels, not one picture
+svs-4709           # 2026-11-22 orbit diagram, not a calm background
+svs-5326           # 2026-11-22 diagram with labels
+svs-4871           # 2026-11-22 terrain flyover with grey no-data areas
+cma-1958-33        # 2026-11-22 a horse study, not a landscape
+cma-1981-57        # 2026-11-22 faint drawing on brown paper
+cma-2006-133       # 2026-11-22 a small etching on a large white sheet
+esawebb-weic2415a  # 2026-11-22 black gaps at the corners
+eso-eso2201a       # 2026-11-22 several panels or an overlay, not one scene
+eso-potw2337a      # 2026-11-22 several panels or an overlay, not one scene
+eso-side-by-side-toby  # 2026-11-22 several panels or an overlay, not one scene
+eso-eso1243c       # 2026-11-22 nearly empty dark field
+eso-eso2307a       # 2026-11-22 nearly empty dark field
+svs-20302          # 2026-11-22 video with arrows, labels or a title card
+svs-31356          # 2026-11-22 video with arrows, labels or a title card
+svs-5555           # 2026-11-22 video with arrows, labels or a title card
+eso-ib-alma22      # 2026-11-22 equipment as the subject
+eso-potw1050a      # 2026-11-22 equipment as the subject
+cma-1916-1104      # 2026-11-22 figure print or interior, not a landscape
+cma-1916-1116      # 2026-11-22 figure print or interior, not a landscape
+cma-1916-1122      # 2026-11-22 figure print or interior, not a landscape
+cma-1916-1147      # 2026-11-22 figure print or interior, not a landscape
+cma-1916-1154      # 2026-11-22 figure print or interior, not a landscape
+cma-1920-515       # 2026-11-22 figure print or interior, not a landscape
+cma-1921-1260      # 2026-11-22 figure print or interior, not a landscape
+cma-1943-10        # 2026-11-22 figure print or interior, not a landscape
+cma-1943-7         # 2026-11-22 figure print or interior, not a landscape
+cma-1956-749       # 2026-11-22 figure print or interior, not a landscape
+cma-1956-750       # 2026-11-22 figure print or interior, not a landscape
+cma-1956-751       # 2026-11-22 figure print or interior, not a landscape
+cma-1956-752       # 2026-11-22 figure print or interior, not a landscape
+cma-1956-753       # 2026-11-22 figure print or interior, not a landscape
+cma-1975-97        # 2026-11-22 figure print or interior, not a landscape
+cma-1985-326       # 2026-11-22 figure print or interior, not a landscape
+cma-1965-310       # 2026-11-22 figure print or interior, not a landscape
+cma-1916-1056      # 2026-11-22 bathers
+cma-1980-188       # 2026-11-22 several parts on a white ground
+cma-1992-77        # 2026-11-22 several parts on a white ground
+cma-1960-163       # 2026-11-22 several parts on a white ground
+cma-1976-92        # 2026-11-22 several parts on a white ground
+cma-1998-95        # 2026-11-22 several parts on a white ground
+cma-2015-457       # 2026-11-22 too faint to work as a background
+cma-2015-467       # 2026-11-22 too faint to work as a background
+cma-2015-507       # 2026-11-22 too faint to work as a background
+cma-1947-139       # 2026-11-22 too faint to work as a background
+cma-1954-707       # 2026-11-22 too faint to work as a background
+cma-1919-129       # 2026-11-22 line etching on white paper
+cma-1919-147       # 2026-11-22 line etching on white paper
+cma-1962-157       # 2026-11-22 an album cover, not a picture
+cma-2006-226       # 2026-11-22 small print inside wide paper margins
+cma-2006-227       # 2026-11-22 small print inside wide paper margins
+cma-2006-230       # 2026-11-22 small print inside wide paper margins
+cma-2006-231       # 2026-11-22 small print inside wide paper margins
+cma-2006-232       # 2026-11-22 small print inside wide paper margins
+cma-2006-234       # 2026-11-22 small print inside wide paper margins
+cma-2006-236       # 2026-11-22 small print inside wide paper margins
+cma-2006-237       # 2026-11-22 small print inside wide paper margins
+svs-4550           # 2026-11-22 511 MB, too large a download for a background

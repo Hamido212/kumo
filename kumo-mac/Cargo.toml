@@ -41,6 +41,10 @@ raw-window-handle = "0.6"
 wgpu = { version = "30", default-features = false, features = ["dx12", "wgsl"] }
 windows = { version = "0.58", features = ["Win32_Foundation", "Win32_System_SystemInformation"] }
 
+[features]
+# accept plain http on 127.0.0.1/localhost and KUMO_CATALOG, for developing without the internet
+devnet = []
+
 [build-dependencies]
 slint-build = "=1.18.1"
 

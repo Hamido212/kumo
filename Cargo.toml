@@ -34,6 +34,7 @@ features = [
   "Win32_Graphics_Dxgi_Common",
   "Win32_Graphics_Gdi",
   "Win32_Media_MediaFoundation",
+  "Win32_Networking_WinHttp",
   "Win32_Security",
   "Win32_Storage",
   "Win32_Storage_FileSystem",
@@ -58,6 +59,10 @@ features = [
   "Win32_UI_Shell",
   "Win32_UI_WindowsAndMessaging",
 ]
+
+[features]
+# accept plain http on 127.0.0.1/localhost and KUMO_CATALOG, for developing without the internet
+devnet = []
 
 [profile.release]
 opt-level = 3
