@@ -55,7 +55,7 @@ Measured on an Intel Iris Xe laptop:
 | Lively Wallpaper with the same scene, two screens (1440p + 1080p) | **about 900 MB** | Lively 135 MB plus one Edge WebView2 per screen |
 | **Kumo, same two screens** | **about 74 MB** | GPU 3D load about 19 %, about 9 % of one CPU core |
 | Kumo, 3D scene, one 1080p screen | about 63 MB | about 0.3 % of the whole CPU |
-| Kumo, animation, one 1080p screen | about 45–50 MB | GPU 3D load 5–10 % at 30 fps; measured in a test window, where the 3D scene needs about 72 MB and 10 % |
+| Kumo, animation, one 1080p screen | about 44–50 MB | GPU 3D load 5–11 % at 30 fps; measured in a test window, where the 3D scene needs about 76 MB and 11 % |
 | Kumo, 1080p H.264 video | about 119 MB | hardware decoding, about 0.5 % of the whole CPU |
 | Kumo, 1080p VP9 / AV1 video | about 86 / 91 MB | hardware decoding |
 | Kumo, 4K HEVC video | about 213 MB | hardware decoding |
