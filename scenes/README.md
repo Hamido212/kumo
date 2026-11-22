@@ -141,6 +141,21 @@ night `--hour 22`, when lamps and point lights are on. Memory is the private wor
 `--stats`, GPU load the 3D engine's share from Windows' performance counters over 20 seconds.
 Each scene also held 64 MB of the graphics card's shared memory, the same as the built-in one.
 
+The download scenes were measured the same way with the release build of 1.1.0 on the same
+laptop, but on mains power, where Kumo draws 30 frames a second, so their numbers are compared
+with the built-in scene measured in the same run, not with the table above:
+
+| Scene | File | Vertices | Private working set, day / night | GPU 3D load, day / night |
+|---|---|---|---|---|
+| Voxel Pagoda Garden (built in, same run) | 4.85 MB | 193,422 | 68 / 68 MB | 8.5 / 9.9 % |
+| Neon Horizon | 1.38 MB | 56,736 | 64 / 64 MB | 9.1 / 9.3 % |
+| Neon District | 4.82 MB | 178,129 | 67 / 67 MB | 9.6 / 10.1 % |
+| Orbit | 3.50 MB | 114,700 | 66 / 66 MB | 9.5 / 9.6 % |
+
+Measured on 22 November 2026, `--hour 13` and `--hour 22`. The pagoda gave 65 MB in an earlier
+run the same afternoon, so the working set varies by about 3 MB from run to run; within one run
+none of the three needed more than the pagoda.
+
 ## The download scenes
 
 Neon Horizon, Neon District and Orbit are made entirely by their scripts, with no third-party
