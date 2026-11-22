@@ -10,11 +10,15 @@ lib/              tools for new scenes, plain Node with no packages to install
   grid.mjs        voxel grids and the mesher
   kumo.mjs        writes .kumo files
   parts.mjs       lit windows, snow, island rock, clouds
+  shapes.mjs      meshes that are not voxels: flat strips, ridges, discs, a sphere cap
   models.mjs      loads third-party models and keeps their credits
   test.mjs        self-tests: node --test scenes/lib/test.mjs
 metro/            Metro Block: a city block that lights up at night
 village/          Autumn Village: houses round a green, a duck pond, falling leaves
 winter/           Winter Square: a decorated tree, snow, warm windows
+synthwave/        Neon Horizon: a striped sun over a neon grid (download scene)
+alley/            Neon Alley: a rainy cyberpunk block with signs and drones (download scene)
+orbit/            Orbit: an outpost on an asteroid above a planet (download scene)
 vox2kumo.mjs      one or more .vox models on a plate, as a .kumo scene
 fetch-models.mjs  downloads the third-party models
 models.json       which models, by whom, under which licence, with checksums
@@ -33,7 +37,15 @@ node scenes/winter/bake.mjs      # scenes/out/winter-square.kumo
 node scenes/pack.mjs             # assets/scenes/<id>.kumo.z, the copies that ship inside Kumo
 ```
 
-These three scenes are built into Kumo (`BUILTIN` in `src/library.rs`). `pack.mjs` compresses each
+The download scenes need no models and are not packed into Kumo; they are offered in Discover:
+
+```powershell
+node scenes/synthwave/bake.mjs   # scenes/out/neon-horizon.kumo
+node scenes/alley/bake.mjs       # scenes/out/neon-alley.kumo
+node scenes/orbit/bake.mjs       # scenes/out/orbit.kumo
+```
+
+The first three scenes are built into Kumo (`BUILTIN` in `src/library.rs`). `pack.mjs` compresses each
 baked file to about a fifth of its size, and `src/inflate.rs` unpacks it when the scene is first
 shown, so they add about 3 MB to the program instead of 15. After baking, run `pack.mjs` and
 rebuild Kumo; a test fails if the packed copies and `scenes/out` differ. A new built-in scene
@@ -129,6 +141,48 @@ night `--hour 22`, when lamps and point lights are on. Memory is the private wor
 `--stats`, GPU load the 3D engine's share from Windows' performance counters over 20 seconds.
 Each scene also held 64 MB of the graphics card's shared memory, the same as the built-in one.
 
+## The download scenes
+
+Neon Horizon, Neon Alley and Orbit are made entirely by their scripts, with no third-party
+models, and use only what the format already had. Some of it is used in ways the first scenes
+did not need:
+
+* **A camera that stays put.** Neon Horizon is composed for one view down the road into the
+  sun, so `camera.orbitSpeed` is 0 (the rotation setting then has no effect). `camera.elev` is
+  slightly negative, which looks up a little and puts the horizon below the middle. The engine's
+  slow sway of the camera still runs.
+* **A sun that stands still, a dusk that lasts all day.** `sky.sun.rise` and `set` are -9999 and
+  9999: the whole day is then a tiny piece of the sun's arc, and it hangs where `tilt` and `yaw`
+  put it. The sky keys keep sunset colours at every hour; only the stars, the glow of the neon
+  and the darkness of the sky change towards night. The striped sun is a set of flat bands, each
+  an object with its own `emissive` colour, so it is equally bright by day and night. `keyC`
+  also colours the glow the sky draws round the sun, which is why it is dark at night there.
+* **Neon by day.** The `glow` of the day keys is not 0 (0.62, 0.38, 0.35): signs, lit windows and
+  station lamps stay on in daylight, dimmer than at night.
+* **Thin lines that do not shimmer.** Grid lines far out to the side run almost level across the
+  screen and get thinner than a pixel; the script widens them with distance and fades them
+  where that is not enough. The cross lines thicken with distance and end before they crowd.
+* **Rain.** Petals fall at a fixed, slow speed and tumble, so they read as snow. Neon Alley's
+  rain is drawn by the waterfall shader on 170 pairs of very thin, tall sheets (the
+  `waterfall` mesh may be any mesh; its colour carries the shader's coordinates). Their `v`
+  runs only from 1 to 0.6, so the shader's fade at the foot never starts, and the spray is
+  parked far below the world.
+* **A planet.** Orbit's planet is not voxels: a smooth cap of a sphere of radius 4000 whose top
+  lies 150 under the station (`sphereCap` in `lib/shapes.mjs`, 33,000 vertices). The air's haze
+  is painted into its colours towards the horizon, city lights are small glowing squares on the
+  land, and a ring of 180 large halos half hidden behind its curve draws the glow of the air at
+  the edge. Fog is pushed out of the way.
+* **Flying things.** An orbiting object keeps its rotation, so it slides sideways round its
+  circle. The circling vehicles are therefore round: passenger drones with four rotors, and
+  satellites that turn slowly in place (`bob.rotAmp`). The fireflies, which wander and blink,
+  are small drones over the city and far satellites in Orbit.
+
+What the engine could not do, for later work: rain streaks (a falling particle with its own
+speed and stretch), an orbiting object that turns to face where it goes, blinking lights at
+fixed places (fireflies wander by up to 1.6 units), moving or scrolling surfaces (the grid of a
+synthwave plain, drifting cloud layers on the planet), a light that flickers, and bloom (neon
+gets its halo from glow sprites only).
+
 ## Credits and licences
 
 Only models under public domain, CC0 or CC BY 4.0 may be used, the same rule as for the online
@@ -148,3 +202,8 @@ The three scenes use 67 models from **Mini Mike's Metro Minis** by Mike Judge
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The models were converted to meshes,
 recoloured in places (lit windows, autumn leaves, snow) and arranged into scenes. Everything else
 in the scenes (islands, ground, the tower, pond, ducks, snowmen) is generated by the scripts.
+
+Neon Horizon, Neon Alley and Orbit use no third-party work. They are offered as downloads in
+Discover, whose catalogue lists no GPL artwork, so their manifests credit Kumo for the baked
+scene under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); the scripts that make
+them stay under Kumo's own licence.
