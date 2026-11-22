@@ -28,7 +28,14 @@ macro_rules! effect {
 }
 
 /// Every shader wallpaper; library.rs lists the same ids.
-pub static EFFECTS: &[Effect] = &[effect!("northern-lights", 0.6), effect!("neon-horizon", 0.8)];
+pub static EFFECTS: &[Effect] = &[
+    effect!("northern-lights", 0.6),
+    effect!("neon-horizon", 0.8),
+    effect!("nebula-drift", 0.6),
+    effect!("midnight-silk", 0.5),
+    effect!("star-drift", 0.75),
+    effect!("ocean-swell", 0.6),
+];
 
 pub fn effect(id: &str) -> Option<&'static Effect> {
     EFFECTS.iter().find(|e| e.id == id)

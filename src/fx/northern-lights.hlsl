@@ -2,28 +2,32 @@
 //
 // Each curtain is a vertical sheet standing on a slowly folding line in the ground plan that runs
 // from far away on the left to nearer on the right. Along each view ray the shader looks for the
-// places where the ray passes over that line (ten samples in the plan, no 3D ray marching) and
+// places where the ray passes over that line (twelve samples in the plan, no 3D ray marching) and
 // adds the light of the sheet there: that gives real perspective, folds that glow where the sheet
 // is seen edge-on, and rays that run up the sheet. The lake shows the same sky, mirrored.
 
 #define HORIZON -0.2
 #define BASE 0.55  // height of the curtains' lower edge above the eye
 #define TOP 3.0
-#define SAMPLES 10
+#define SAMPLES 12
 
 float3 lowColor() { return pick(float3(0.06, 0.95, 0.38), float3(0.95, 0.16, 0.42), float3(0.06, 0.72, 1.00)); }
-float3 highColor() { return pick(float3(0.26, 0.06, 0.55), float3(0.45, 0.04, 0.14), float3(0.16, 0.10, 0.75)); }
+float3 highColor() { return pick(float3(0.20, 0.05, 0.42), float3(0.38, 0.03, 0.12), float3(0.12, 0.08, 0.60)); }
 
-// depth of a curtain's foot at sideways position x
+// depth of a curtain's foot at sideways position x: from far on the left to near on the right,
+// with folds that drift and change shape over minutes
 float foot(float x, float z0, float tilt, float seed, float t) {
-  return z0 - tilt * x + 4.0 * gnoise1(x * 0.42 + t * 0.010, seed) + 1.3 * gnoise1(x * 1.25 - t * 0.017, seed + 5.0);
+  float fold = 3.2 * gnoise1(x * 0.55 + t * 0.012, seed) + 1.1 * gnoise1(x * 1.5 - t * 0.02, seed + 5.0);
+  return max(z0 - tilt * x, 1.2) + fold * ss(0.0, 2.5, z0 - tilt * x);
 }
 
 // the sheet's light where the ray crosses its foot at depth z; dgdz: how steeply the ray crosses
 float3 sheet(float2 dir, float z, float dgdz, float seed, float strength, float t) {
   float x = z * dir.x;
   float above = z * dir.y - BASE;
-  float fold = min(0.45 / max(abs(dgdz), 0.12), 3.0);
+  // brighter where the sheet is seen edge-on, but fading where a fold turns away, so the two
+  // crossings of a fold vanish together instead of ending in a hard line
+  float fold = min(0.45 / max(abs(dgdz), 0.12), 3.0) * ss(0.0, 0.3, abs(dgdz));
   float edge = z * 2.5 * PX + 0.01;
   float body = ss(-edge, edge, above) * exp(-max(above, 0.0) * 1.8) * ss(TOP - BASE, TOP - BASE - 1.4, above);
   float haze = exp(-max(-above, 0.0) * 10.0) * 0.04;
@@ -38,24 +42,25 @@ float3 sheet(float2 dir, float z, float dgdz, float seed, float strength, float 
 }
 
 // light of one curtain along the view ray; dir: sideways and upwards per unit of depth. The ray
-// may pass over a folded foot more than once: the nearest two crossings count.
+// may pass over a folded foot more than once: up to three crossings count.
 float3 curtain(float2 dir, float z0, float tilt, float seed, float strength, float t) {
-  float4 hits = float4(-1.0, 0.0, -1.0, 0.0); // (depth, slope) of up to two crossings
-  float zPrev = 1.5;
+  float3 depths = -1.0, slopes = 0.0;
+  int n = 0;
+  float zPrev = 0.9;
   float gPrev = foot(zPrev * dir.x, z0, tilt, seed, t) - zPrev;
   [loop] for (int k = 1; k < SAMPLES; k++) {
-    float z = 1.5 * pow(16.0, k / (SAMPLES - 1.0));
+    float z = 0.9 * pow(28.0, k / (SAMPLES - 1.0));
     float g = foot(z * dir.x, z0, tilt, seed, t) - z;
-    if (g * gPrev <= 0.0 && gPrev != g) {
-      float2 hit = float2(lerp(zPrev, z, gPrev / (gPrev - g)), (g - gPrev) / (z - zPrev));
-      if (hits.x < 0.0) hits.xy = hit; else if (hits.z < 0.0) hits.zw = hit;
+    if (g * gPrev <= 0.0 && gPrev != g && n < 3) {
+      float zc = lerp(zPrev, z, gPrev / (gPrev - g)), s = (g - gPrev) / (z - zPrev);
+      if (n == 0) { depths.x = zc; slopes.x = s; } else if (n == 1) { depths.y = zc; slopes.y = s; } else { depths.z = zc; slopes.z = s; }
+      n++;
     }
     zPrev = z;
     gPrev = g;
   }
   float3 light = 0.0;
-  if (hits.x > 0.0) light += sheet(dir, hits.x, hits.y, seed, strength, t);
-  if (hits.z > 0.0) light += sheet(dir, hits.z, hits.w, seed, strength, t);
+  [loop] for (int h = 0; h < n; h++) light += sheet(dir, depths[h], slopes[h], seed, strength, t);
   return light;
 }
 
@@ -105,8 +110,8 @@ float3 sky(float2 p, float t, bool mirrored) {
   float lights = lerp(0.55, 1.0, NIGHT);
 
   float2 dir = float2(p.x, up);
-  float3 a = curtain(dir, 7.0, 0.6, 1.0, 1.0, t);
-  a += curtain(dir, 14.0, 0.3, 2.0, 0.55, t);
+  float3 a = curtain(dir, 3.4, 0.95, 1.0, 1.0, t);
+  a += curtain(dir, 10.0, 0.35, 2.0, 0.5, t);
   c += a * lights;
   if (!mirrored) c += stars(p, t) * ss(0.02, 0.3, up) * lerp(0.35, 1.0, NIGHT) * (1.0 - saturate(luma(a) * 3.0));
 

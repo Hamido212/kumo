@@ -67,6 +67,10 @@ macro_rules! animation {
 static ANIMATIONS: &[Builtin] = &[
     animation!("northern-lights", "Northern Lights"),
     animation!("neon-horizon", "Neon Horizon"),
+    animation!("nebula-drift", "Nebula Drift"),
+    animation!("midnight-silk", "Midnight Silk"),
+    animation!("star-drift", "Star Drift"),
+    animation!("ocean-swell", "Ocean Swell"),
 ];
 #[cfg(not(shader_wallpapers))]
 static ANIMATIONS: &[Builtin] = &[];
