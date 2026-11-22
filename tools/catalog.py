@@ -78,7 +78,7 @@ def last_death_year():
 # descriptions, tags and classifications, in English and (for SMK) Danish.
 UNSUITABLE = re.compile(r"\b(" + "|".join([
     r"nude?s?", r"nudity", r"naked", r"erotic\w*", r"shunga", r"pillow book", r"lovers?", r"courtesans?",
-    r"bath(?:ing|ers?)?", r"venus", r"leda", r"susanna", r"bacchanal\w*", r"nymphs?", r"harem",
+    r"bath(?:ing|ers?)?", r"divers?", r"abalone", r"awabi", r"venus", r"leda", r"susanna", r"bacchanal\w*", r"nymphs?", r"harem",
     r"war", r"wars", r"battle\w*", r"warriors?", r"soldiers?", r"army", r"siege", r"massacre", r"murder\w*",
     r"execution\w*", r"kill\w*", r"slaughter\w*", r"blood\w*", r"weapons?", r"swords?", r"guns?", r"hunt\w*",
     r"fight\w*", r"violence", r"suicide", r"ghosts?", r"demons?", r"hell", r"skulls?", r"skeletons?",

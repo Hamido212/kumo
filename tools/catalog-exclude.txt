@@ -62,3 +62,4 @@ cma-2006-234       # 2026-11-22 small print inside wide paper margins
 cma-2006-236       # 2026-11-22 small print inside wide paper margins
 cma-2006-237       # 2026-11-22 small print inside wide paper margins
 svs-4550           # 2026-11-22 511 MB, too large a download for a background
+cma-1916-944       # 2026-11-22 abalone divers, shown unclothed
