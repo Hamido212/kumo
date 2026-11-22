@@ -152,7 +152,7 @@ removed."); a file that is byte for byte the original says `none` in `changes` a
 | [Pop!_OS wallpapers](https://github.com/pop-os/wallpapers) (mirrored) | CC BY-SA 4.0 for the works the README lists under Kate Hazen (designed for System76) and Nick Nazzaro (commissioned by System76) | those works without the Pop!_OS logo, slogans or mascots; never the Unsplash photos | author, "Pop!_OS wallpapers (System76)", link, CC BY-SA 4.0, changes |
 | [COSMIC wallpapers](https://github.com/pop-os/cosmic-wallpapers) (mirrored) | CC BY 4.0 for the files the README marks "Source: System76" | System76's own picture, not the logo or the NASA/ESA pictures | "System76", link, CC BY 4.0, changes |
 | [Fedora backgrounds](https://github.com/fedoradesign/backgrounds) (mirrored) | CC BY-SA 4.0 (`Attribution` file of each release tag, and the package spec) | the default wallpapers of Fedora 33 to 43, day and night where they differ | "Fedora Design Team", release, link, CC BY-SA 4.0, changes |
-| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 and CC0 entries only | community contest pictures whose file name the entry names exactly; no Canonical release artwork, no release mascots or logos, no Unsplash downloads, no 2.0 or 3.0 entries, nothing whose author is unclear | title from the file name, author from the package's `AUTHORS` file, "Ubuntu wallpapers", link, licence, changes |
+| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 entries only (its CC0 entry does not match the photographers' own pages) | community contest pictures whose file name the entry names exactly; no Canonical release artwork, no release mascots or logos, no Unsplash downloads, no 2.0 or 3.0 entries, nothing whose author is unclear | title from the file name, author from the package's `AUTHORS` file, "Ubuntu wallpapers", link, licence, changes |
 | [Dareful](https://dareful.com/about-dareful-completely-free-4k-stock-video/) (mirrored loops) | CC BY 4.0, stated on the about page and on every clip page | calm nature and mood clips, cut into seamless 1080p loops | the clip's title, "Video courtesy of Dareful", link, CC BY 4.0, changes |
 | [ESA/Webb](https://esawebb.org/copyright/) and [ESA/Hubble](https://esahubble.org/copyright/) videos (mirrored loops) | CC BY 4.0 (music excluded; the loops have no sound) | slow pans and fly-throughs of nebulae | the video's credit line, unaltered, "ESA/Webb" or "ESA/Hubble", CC BY 4.0, changes |
 | [NASA Image and Video Library](https://images.nasa.gov) (mirrored loops) | Public domain (NASA media guidelines; a US federal source) | night views and aurora from the International Space Station | title, "Credit: NASA", link, changes |
@@ -235,9 +235,10 @@ first; `python tools/catalog.py build --only smk` still runs it (it asks for 384
 * **Release mascots and logos** in KDE, Pop!_OS, COSMIC and Ubuntu artwork: brand marks as the
   subject, whatever the licence of the picture. A logo anywhere in the picture counts too (KDE's
   Safe Landing has the KDE logo on the rocket's flag).
-* **Ubuntu's CC0 photos Voss and Yala Mountain:** CC0 appears only in the packager's file; on the
-  photographers' own Flickr pages they carry the Public Domain Mark, which is not a dedication, and
-  a photo from 2015 is not in the public domain. **Haukelivegen, Norway:** Ubuntu's `AUTHORS` says
+* **Ubuntu's CC0 photos** (Voss, Yala Mountain, London Eye and the rest of that entry): CC0
+  appears only in the packager's file; on the photographers' own Flickr pages Voss and Yala
+  Mountain carry the Public Domain Mark, which is not a dedication, and a photo from 2015 is not in
+  the public domain. London Eye's own page could not be found, so it stays out with them. **Haukelivegen, Norway:** Ubuntu's `AUTHORS` says
   "Mads", the original's XMP names someone else as creator and rights holder; author unclear.
 * **Budgie backgrounds** (CC0): the repository does not record per file who made each photo and
   where it came from, which its own rules ask of submitters. Not taken for now.
@@ -274,8 +275,8 @@ the public GitHub repository [Hamido212/kumo-wallpapers](https://github.com/Hami
   above 6 MB. No comment, EXIF, XMP, IPTC or colour profile may stay in a mirrored file or preview:
   `mirror_pictures.py build` checks every file and fails otherwise. A person looks at every
   picture before it goes in.
-* Today (November 2026): 103 pictures (KDE 29, Fedora 19, Pop!_OS 8, COSMIC 1, Ubuntu 46; in
-  the categories `desktop` 68 and `photo` 35), 32 loops (Dareful 12, ESA/Webb 6, ESA/Hubble 3,
+* Today (November 2026): 102 pictures (KDE 29, Fedora 19, Pop!_OS 8, COSMIC 1, Ubuntu 45; in
+  the categories `desktop` 68 and `photo` 34), 32 loops (Dareful 12, ESA/Webb 6, ESA/Hubble 3,
   NASA 3, USGS 1, Internet Archive 1, our own AI loops 6) and 3 scenes.
 * GitHub serves files of this repository only as long as they are plain files: no Git LFS (raw
   links would return the LFS pointer), and no file above GitHub's limit of 100 MB.

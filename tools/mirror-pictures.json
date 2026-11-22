@@ -927,18 +927,6 @@
    "authorEvidence": "AUTHORS file of the ubuntu-wallpapers source package, https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/AUTHORS?h=ubuntu/stonking"
   },
   {
-   "id": "ubuntu-london-eye-by-paul-daniell",
-   "source": "ubuntu",
-   "title": "London Eye",
-   "author": "Paul Daniell",
-   "category": "photo",
-   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/London_Eye_by_Paul_Daniell.jpg?h=ubuntu/stonking",
-   "license": "CC0 1.0",
-   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
-   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC0)",
-   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/London_Eye_by_Paul_Daniell.jpg?h=ubuntu/stonking"
-  },
-  {
    "id": "ubuntu-luce-e-ombra-by-jacop02169",
    "source": "ubuntu",
    "title": "Luce e Ombra",
