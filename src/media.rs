@@ -89,9 +89,21 @@ pub fn thumbnail_from_bgra(bgra: &[u8], w: u32, h: u32, dst: &Path) -> Result<()
         let rect = WICRect { X: ((w - cw) / 2) as i32, Y: ((h - ch) / 2) as i32, Width: cw.max(1) as i32, Height: ch.max(1) as i32 };
         clip.Initialize(&bmp, &rect)?;
         let src = scaled(&f, &clip.into(), TW, TH)?;
-        let src = converted(&f, &src, &GUID_WICPixelFormat24bppBGR)?;
-        let px = pixels(&src, TW, TH, 3)?;
+        encode_jpeg(&f, &src, TW, TH, dst)
+    }
+}
 
+/// Writes BGRA pixels as a JPEG of the same size (screenshots of the renderer).
+pub fn save_jpeg(bgra: &[u8], w: u32, h: u32, dst: &Path) -> Result<()> {
+    let f = factory()?;
+    let bmp = unsafe { f.CreateBitmapFromMemory(w, h, &GUID_WICPixelFormat32bppBGRA, w * 4, bgra)? };
+    encode_jpeg(&f, &bmp.into(), w, h, dst)
+}
+
+fn encode_jpeg(f: &IWICImagingFactory, src: &IWICBitmapSource, w: u32, h: u32, dst: &Path) -> Result<()> {
+    let src = converted(f, src, &GUID_WICPixelFormat24bppBGR)?;
+    let px = pixels(&src, w, h, 3)?;
+    unsafe {
         let stream = f.CreateStream()?;
         stream.InitializeFromFilename(&HSTRING::from(dst.as_os_str()), GENERIC_WRITE.0)?;
         let enc = f.CreateEncoder(&GUID_ContainerFormatJpeg, std::ptr::null())?;
@@ -101,10 +113,10 @@ pub fn thumbnail_from_bgra(bgra: &[u8], w: u32, h: u32, dst: &Path) -> Result<()
         enc.CreateNewFrame(&mut frame, &mut props)?;
         let frame = frame.unwrap();
         frame.Initialize(props.as_ref())?;
-        frame.SetSize(TW, TH)?;
+        frame.SetSize(w, h)?;
         let mut fmt = GUID_WICPixelFormat24bppBGR;
         frame.SetPixelFormat(&mut fmt)?;
-        frame.WritePixels(TH, TW * 3, &px)?;
+        frame.WritePixels(h, w * 3, &px)?;
         frame.Commit()?;
         enc.Commit()?;
     }

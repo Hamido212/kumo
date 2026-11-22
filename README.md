@@ -4,7 +4,8 @@ Kumo (雲, "cloud") shows animated 3D scenes, videos and pictures behind your de
 no browser and no .NET, in a single 24 MB program. It comes with a floating voxel island: a
 five-storey pagoda, falling cherry blossoms, a koi pond, a waterfall and a real day and night
 that follow your clock. Three more scenes are built in: a city block, an autumn village and a
-snowy square.
+snowy square. And six animations, each drawn by a single shader: northern lights over a lake, a
+neon horizon, a drifting nebula, dark silk, a slow flight through the stars and an ocean swell.
 
 ![Voxel Pagoda Garden](docs/preview.png)
 
@@ -54,6 +55,7 @@ Measured on an Intel Iris Xe laptop:
 | Lively Wallpaper with the same scene, two screens (1440p + 1080p) | **about 900 MB** | Lively 135 MB plus one Edge WebView2 per screen |
 | **Kumo, same two screens** | **about 74 MB** | GPU 3D load about 19 %, about 9 % of one CPU core |
 | Kumo, 3D scene, one 1080p screen | about 63 MB | about 0.3 % of the whole CPU |
+| Kumo, animation, one 1080p screen | about 44–50 MB | GPU 3D load 5–11 % at 30 fps; measured in a test window, where the 3D scene needs about 76 MB and 11 % |
 | Kumo, 1080p H.264 video | about 119 MB | hardware decoding, about 0.5 % of the whole CPU |
 | Kumo, 1080p VP9 / AV1 video | about 86 / 91 MB | hardware decoding |
 | Kumo, 4K HEVC video | about 213 MB | hardware decoding |
@@ -78,17 +80,22 @@ its own copy of textures on top of that.
   [Slint](https://slint.dev), needs no GPU context and exits when closed.
 * **Baked scenes:** a world is generated once and stored as compact vertex data (20 bytes per
   vertex). Shaders are compiled when Kumo is built, so nothing is compiled at start-up.
+* **Animations are a single shader:** no meshes, no textures, a few kilobytes of code each.
+  They are drawn below screen resolution (at most the pixels of a 1080p screen) into a 10-bit
+  target, then scaled up and dithered, so soft gradients show no bands.
 
 ## What it can do
 
-* 3D scenes, videos (MP4, WebM, MKV and more, whatever Windows can decode) and pictures
+* 3D scenes, animations, videos (MP4, WebM, MKV and more, whatever Windows can decode) and
+  pictures
 * The same wallpaper everywhere, or a different one per screen, or none on a screen
 * Add files by dragging them into the window
 * Discover: free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, and (in versions
   after 1.1.0) desktop art from KDE, Fedora, Pop!_OS and Ubuntu that we mirror on GitHub, each with
   its source and licence, added to the library with one click (optional, goes online only after you agree)
-* Time of day for 3D scenes: your clock, a fixed time or time-lapse
-* Fit (fill, fit, stretch) and playback speed for videos and pictures
+* Time of day for 3D scenes and animations: your clock, a fixed time or time-lapse
+* Fit (fill, fit, stretch) and playback speed for videos and pictures, speed and colours for
+  animations
 * 15, 30 or 60 fps, render resolution, edge smoothing
 * Pauses by itself: covered screens, battery and energy saver rules, locked PC, display off,
   Remote Desktop
@@ -131,9 +138,10 @@ normal Windows wallpaper comes back.
 | `--window [--size 1280x720]` | run in a normal window instead of behind the icons |
 | `--hour 19` | fixed time of day |
 | `--lapse 600` | time-lapse (600 = one day in 2.4 minutes) |
-| `--fps=60`, `--quality=0.8`, `--rotate=0`, `--petals=1.5`, `--fxaa=off`, `--parallax=on` | override a setting |
-| `--scene file.kumo` | with `--shot`: render another baked scene |
-| `--shot out.bmp --size 2560x1440 [--hour 18.9] [--warmup 6]` | render one frame to a file and exit |
+| `--fps=60`, `--quality=0.8`, `--rotate=0`, `--petals=1.5`, `--fxaa=off`, `--parallax=on`, `--speed=0.5`, `--style=2` | override a setting |
+| `--scene file.kumo`, `--scene northern-lights` | with `--shot`: render a baked scene file or a built-in scene or animation |
+| `--shot out.jpg --size 2560x1440 [--hour 18.9] [--warmup 6]` | render one frame to a file (`.jpg` or `.bmp`) and exit; for an animation, `--warmup` is how many seconds into it |
+| `--thumb` | with `--shot`: write a 480x270 library thumbnail |
 | `--stats`, `--log file` | write fps, frame time and memory to the log |
 
 ## Building
@@ -186,10 +194,12 @@ src/
   watch.rs      which screens are covered by maximized windows
   gfx.rs        Direct3D 11 helpers
   render.rs     draw order: shadow map, voxels, petals, sky, water, particles, post pass
+  shader.rs     animations: one pixel shader each, their clock, render size and time of day
+  fx/           the animations' shaders (common.hlsl plus one file per animation)
   world.rs      simulation: clock, camera, wind, petals, spray, fireflies, moving objects
   env.rs        time-of-day keyframes, sun and moon paths
   scene.rs      .kumo file format
-  shaders.hlsl  all shaders (lighting matches three.js so scenes look like their preview)
+  shaders.hlsl  the scenes' shaders (lighting matches three.js so scenes look like their preview)
   config.rs     config.json and autostart
   net.rs        downloads over WinHTTP
   catalog.rs    online catalogue for the Discover tab

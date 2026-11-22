@@ -192,45 +192,69 @@ impl Gpu {
     }
 }
 
-/// Offscreen colour + depth that a scene view renders into before the post pass.
+/// Offscreen colour (+ depth) that a scene view or a shader wallpaper renders into before the
+/// post pass.
 pub struct Target {
     pub w: u32,
     pub h: u32,
     pub color: ID3D11Texture2D,
     pub rtv: ID3D11RenderTargetView,
     pub srv: ID3D11ShaderResourceView,
-    pub dsv: ID3D11DepthStencilView,
+    /// None for a flat target
+    pub dsv: Option<ID3D11DepthStencilView>,
+    format: DXGI_FORMAT,
 }
 
 impl Target {
+    /// 8-bit colour and a depth buffer, for 3D scenes.
     pub fn new(gpu: &Gpu, w: u32, h: u32) -> Result<Target> {
+        Self::create(gpu, w, h, DXGI_FORMAT_R8G8B8A8_UNORM, true)
+    }
+
+    /// 10-bit colour without depth, for shader wallpapers: the same 4 bytes a pixel, but smooth
+    /// gradients survive until the post pass dithers them to the screen.
+    pub fn flat(gpu: &Gpu, w: u32, h: u32) -> Result<Target> {
+        Self::create(gpu, w, h, DXGI_FORMAT_R10G10B10A2_UNORM, false)
+    }
+
+    pub fn is_flat(&self) -> bool {
+        self.dsv.is_none()
+    }
+
+    fn create(gpu: &Gpu, w: u32, h: u32, format: DXGI_FORMAT, depth: bool) -> Result<Target> {
         let mut desc = D3D11_TEXTURE2D_DESC {
             Width: w,
             Height: h,
             MipLevels: 1,
             ArraySize: 1,
-            Format: DXGI_FORMAT_R8G8B8A8_UNORM,
+            Format: format,
             SampleDesc: DXGI_SAMPLE_DESC { Count: 1, Quality: 0 },
             Usage: D3D11_USAGE_DEFAULT,
             BindFlags: (D3D11_BIND_RENDER_TARGET.0 | D3D11_BIND_SHADER_RESOURCE.0) as u32,
             ..Default::default()
         };
-        let (mut color, mut depth, mut rtv, mut srv, mut dsv) = (None, None, None, None, None);
+        let (mut color, mut rtv, mut srv, mut dsv) = (None, None, None, None);
         unsafe {
             gpu.dev.CreateTexture2D(&desc, None, Some(&mut color))?;
-            desc.Format = DXGI_FORMAT_D32_FLOAT;
-            desc.BindFlags = D3D11_BIND_DEPTH_STENCIL.0 as u32;
-            gpu.dev.CreateTexture2D(&desc, None, Some(&mut depth))?;
             let color = color.as_ref().unwrap();
             gpu.dev.CreateRenderTargetView(color, None, Some(&mut rtv))?;
             gpu.dev.CreateShaderResourceView(color, None, Some(&mut srv))?;
-            gpu.dev.CreateDepthStencilView(depth.as_ref().unwrap(), None, Some(&mut dsv))?;
+            if depth {
+                let mut tex = None;
+                desc.Format = DXGI_FORMAT_D32_FLOAT;
+                desc.BindFlags = D3D11_BIND_DEPTH_STENCIL.0 as u32;
+                gpu.dev.CreateTexture2D(&desc, None, Some(&mut tex))?;
+                gpu.dev.CreateDepthStencilView(tex.as_ref().unwrap(), None, Some(&mut dsv))?;
+            }
         }
-        Ok(Target { w, h, color: color.unwrap(), rtv: rtv.unwrap(), srv: srv.unwrap(), dsv: dsv.unwrap() })
+        Ok(Target { w, h, color: color.unwrap(), rtv: rtv.unwrap(), srv: srv.unwrap(), dsv, format })
     }
 
-    /// Reads the colour target back as tightly packed RGBA rows (for screenshots).
+    /// Reads an 8-bit colour target back as tightly packed RGBA rows (for screenshots).
     pub fn read_rgba(&self, gpu: &Gpu) -> Result<Vec<u8>> {
+        if self.format != DXGI_FORMAT_R8G8B8A8_UNORM {
+            return Err(windows::core::Error::from(windows::Win32::Foundation::E_INVALIDARG));
+        }
         let desc = D3D11_TEXTURE2D_DESC {
             Width: self.w,
             Height: self.h,

@@ -1,8 +1,8 @@
-//! The wallpaper library: the built-in scenes plus everything the user added.
+//! The wallpaper library: the built-in scenes and animations plus everything the user added.
 //!
 //! Every added wallpaper lives in its own folder `%APPDATA%\Kumo\library\<id>\` with the media
-//! file, a `thumb.jpg` and a `wallpaper.json` describing it. Built-in scenes are part of the
-//! program; their folder holds only the thumbnail.
+//! file, a `thumb.jpg` and a `wallpaper.json` describing it. Built-in scenes and animations are
+//! part of the program; their folder holds only the thumbnail.
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -10,10 +10,11 @@ use std::path::{Path, PathBuf};
 pub static PAGODA_SCENE: &[u8] = include_bytes!("../assets/pagoda.kumo");
 static PAGODA_THUMB: &[u8] = include_bytes!("../assets/pagoda-thumb.jpg");
 
-/// A scene that ships inside the program.
+/// A scene or animation that ships inside the program.
 struct Builtin {
     id: &'static str,
     title: &'static str,
+    kind: Kind,
     thumb: &'static [u8],
     /// packed by scenes/pack.mjs; None for the pagoda, which is the fallback for everything
     /// that fails and so stays as it is, ready without unpacking
@@ -27,6 +28,7 @@ macro_rules! packed_scene {
         Builtin {
             id: $id,
             title: $title,
+            kind: Kind::Scene,
             thumb: include_bytes!(concat!("../assets/scenes/", $id, "-thumb.jpg")),
             packed: Some(include_bytes!(concat!("../assets/scenes/", $id, ".kumo.z"))),
             metro_minis: true,
@@ -37,14 +39,58 @@ macro_rules! packed_scene {
 /// The first one is `config::BUILTIN_SCENE`. To add a scene: bake it, list it in
 /// scenes/pack.mjs and here, and put a 480x270 `<id>-thumb.jpg` next to the packed file.
 static BUILTIN: &[Builtin] = &[
-    Builtin { id: crate::config::BUILTIN_SCENE, title: "Voxel Pagoda Garden", thumb: PAGODA_THUMB, packed: None, metro_minis: false },
+    Builtin { id: crate::config::BUILTIN_SCENE, title: "Voxel Pagoda Garden", kind: Kind::Scene, thumb: PAGODA_THUMB, packed: None, metro_minis: false },
     packed_scene!("metro-block", "Metro Block"),
     packed_scene!("autumn-village", "Autumn Village"),
     packed_scene!("winter-square", "Winter Square"),
 ];
 
+#[cfg(shader_wallpapers)]
+macro_rules! animation {
+    ($id:literal, $title:literal) => {
+        Builtin {
+            id: $id,
+            title: $title,
+            kind: Kind::Shader,
+            thumb: include_bytes!(concat!("../assets/animations/", $id, "-thumb.jpg")),
+            packed: None,
+            metro_minis: false,
+        }
+    };
+}
+
+/// Shader wallpapers: each one is `src/fx/<id>.hlsl`, drawn by src/shader.rs. Only builds that
+/// compile them (build.rs sets `cfg(shader_wallpapers)`) list them; the Mac version has none yet.
+/// To add one: write the effect, list it here and in shader.rs, and render its 480x270
+/// thumbnail with `kumo --shot assets/animations/<id>-thumb.jpg --scene <id> --thumb`.
+#[cfg(shader_wallpapers)]
+static ANIMATIONS: &[Builtin] = &[
+    animation!("northern-lights", "Northern Lights"),
+    animation!("neon-horizon", "Neon Horizon"),
+    animation!("nebula-drift", "Nebula Drift"),
+    animation!("midnight-silk", "Midnight Silk"),
+    animation!("star-drift", "Star Drift"),
+    animation!("ocean-swell", "Ocean Swell"),
+];
+#[cfg(not(shader_wallpapers))]
+static ANIMATIONS: &[Builtin] = &[];
+
+fn builtins() -> impl Iterator<Item = &'static Builtin> {
+    BUILTIN.iter().chain(ANIMATIONS)
+}
+
 fn builtin(id: &str) -> Option<&'static Builtin> {
-    BUILTIN.iter().find(|b| b.id == id)
+    builtins().find(|b| b.id == id)
+}
+
+/// A built-in wallpaper by id, without looking at the library folder.
+pub fn builtin_item(id: &str) -> Option<Item> {
+    builtin(id).map(Builtin::item)
+}
+
+/// The built-in wallpapers, scenes first, without looking at the library folder.
+pub fn builtin_items() -> Vec<Item> {
+    builtins().map(Builtin::item).collect()
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
@@ -54,6 +100,11 @@ pub enum Kind {
     Video,
     #[default]
     Image,
+    /// A shader wallpaper. Only ever built in: it is code, so it never comes from a file, a
+    /// download or the catalogue, and it is never written to one (serde skips it both ways, so
+    /// a "shader" kind fails to load, and an older Kumo never sees one).
+    #[serde(skip)]
+    Shader,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -112,6 +163,9 @@ impl Item {
     /// The scene file's bytes (built-in or from disk).
     pub fn scene_bytes(&self) -> std::io::Result<std::borrow::Cow<'static, [u8]>> {
         use std::borrow::Cow;
+        if self.kind != Kind::Scene {
+            return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "not a scene"));
+        }
         if !self.builtin {
             return std::fs::read(self.path()).map(Cow::Owned);
         }
@@ -124,7 +178,7 @@ impl Item {
 
 impl Builtin {
     fn item(&self) -> Item {
-        let item = Item { id: self.id.into(), title: self.title.into(), kind: Kind::Scene, builtin: true, ..Item::default() };
+        let item = Item { id: self.id.into(), title: self.title.into(), kind: self.kind, builtin: true, ..Item::default() };
         if !self.metro_minis {
             return item;
         }
@@ -141,10 +195,10 @@ impl Builtin {
     }
 }
 
-/// All wallpapers: the built-in scenes first, then the user's, newest first.
+/// All wallpapers: the built-in scenes and animations first, then the user's, newest first.
 pub fn list() -> Vec<Item> {
-    let mut items: Vec<Item> = BUILTIN.iter().map(Builtin::item).collect();
-    for (b, item) in BUILTIN.iter().zip(&items) {
+    let mut items = builtin_items();
+    for (b, item) in builtins().zip(&items) {
         if !item.thumbnail().exists() {
             let _ = std::fs::create_dir_all(item.folder());
             let _ = std::fs::write(item.thumbnail(), b.thumb);
@@ -344,7 +398,9 @@ mod tests {
     fn built_in_scenes_come_first_and_survive_a_sweep() {
         let (_g, _base) = test_home("library-builtin");
         let ids: Vec<String> = list().into_iter().map(|i| i.id).collect();
-        assert_eq!(ids, ["pagoda", "metro-block", "autumn-village", "winter-square"]);
+        assert_eq!(ids[..4], ["pagoda", "metro-block", "autumn-village", "winter-square"]);
+        // then the animations, where this build has them
+        assert_eq!(ids[4..], ANIMATIONS.iter().map(|b| b.id).collect::<Vec<_>>());
         sweep();
         for item in list() {
             assert!(item.builtin && item.thumbnail().exists(), "{}", item.id);
@@ -393,7 +449,45 @@ mod tests {
         assert!(adopt(&tmp, "../x", info, None).is_err());
         assert!(!tmp.exists());
         sweep();
-        assert_eq!(list().len(), BUILTIN.len() + 1);
+        assert_eq!(list().len(), builtins().count() + 1);
+    }
+
+    #[test]
+    fn animations_are_built_in_only() {
+        let animations: Vec<Item> = builtin_items().into_iter().filter(|i| i.kind == Kind::Shader).collect();
+        // the Windows build compiles them, the Mac crate lists none
+        assert_eq!(animations.is_empty(), !cfg!(shader_wallpapers));
+        let ids: Vec<&str> = builtins().map(|b| b.id).collect();
+        for (i, id) in ids.iter().enumerate() {
+            assert!(!ids[..i].contains(id), "{id} is listed twice");
+        }
+        for (b, item) in ANIMATIONS.iter().zip(&animations) {
+            assert!(item.builtin && item.credit.is_empty() && item.file.is_empty());
+            assert!(item.scene_bytes().is_err(), "{} is not a scene", item.id);
+            assert_eq!(&b.thumb[..3], [0xFF, 0xD8, 0xFF], "{}: the thumbnail is not a JPEG", b.id);
+            assert!(b.thumb.len() > 5000, "{}: the thumbnail is too small to be a real one", b.id);
+        }
+    }
+
+    #[test]
+    fn the_shader_kind_is_never_read_or_written() {
+        for (kind, text) in [(Kind::Scene, "\"scene\""), (Kind::Video, "\"video\""), (Kind::Image, "\"image\"")] {
+            assert_eq!(serde_json::to_string(&kind).unwrap(), text);
+            assert_eq!(serde_json::from_str::<Kind>(text).unwrap(), kind);
+        }
+        assert!(serde_json::from_str::<Kind>("\"shader\"").is_err());
+        assert!(serde_json::to_string(&Kind::Shader).is_err());
+        // a wallpaper.json that claims to be one does not load, and none can be saved
+        assert!(serde_json::from_str::<Item>(&OLD.replace("\"video\"", "\"shader\"")).is_err());
+        assert!(serde_json::to_string(&Item { kind: Kind::Shader, ..Item::default() }).is_err());
+        // the catalogue keeps exactly pictures, videos and scenes
+        let entry = |id: &str, kind: &str| {
+            serde_json::json!({ "id": id, "title": id, "kind": kind, "license": "CC0 1.0",
+                "thumb": "https://kumo.hyos.tech/t.jpg", "file": "https://kumo.hyos.tech/f" })
+        };
+        let file = serde_json::json!({ "version": 1, "items": [entry("a", "image"), entry("b", "shader"), entry("c", "video"), entry("d", "scene"), entry("e", "Shader")] });
+        let c = crate::catalog::parse(file.to_string().as_bytes()).unwrap();
+        assert_eq!(c.items.iter().map(|e| (e.id.as_str(), e.kind)).collect::<Vec<_>>(), [("a", Kind::Image), ("c", Kind::Video), ("d", Kind::Scene)]);
     }
 
     #[test]

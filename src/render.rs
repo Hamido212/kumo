@@ -177,9 +177,10 @@ impl Renderer {
         let c = &gpu.ctx;
         gpu.upload(&self.cb_view, &[*view]);
         self.bind_common(gpu);
+        let Some(dsv) = &t.dsv else { return };
         unsafe {
-            c.OMSetRenderTargets(Some(&[Some(t.rtv.clone())]), &t.dsv);
-            c.ClearDepthStencilView(&t.dsv, D3D11_CLEAR_DEPTH.0 as u32, 1.0, 0);
+            c.OMSetRenderTargets(Some(&[Some(t.rtv.clone())]), dsv);
+            c.ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH.0 as u32, 1.0, 0);
             c.RSSetViewports(Some(&[viewport(t.w, t.h)]));
             let shadow_srv = self.shadow.as_ref().map(|s| s.srv.clone());
             c.PSSetShaderResources(0, Some(&[shadow_srv]));
@@ -250,6 +251,7 @@ impl Renderer {
 struct PostCB {
     info: [f32; 4],
     uv: [f32; 4],
+    extra: [f32; 4],
 }
 
 /// How a source fills a screen, see [`crate::config::Fit`].
@@ -266,8 +268,8 @@ pub fn fit_uv(fit: crate::config::Fit, sw: u32, sh: u32, ow: u32, oh: u32) -> [f
     [sx, sy, (1.0 - sx) / 2.0, (1.0 - sy) / 2.0]
 }
 
-/// The last step of every frame: puts a rendered scene view, a picture or a video frame onto
-/// a window's back buffer (scaled, optionally with FXAA and vignette).
+/// The last step of every frame: puts a rendered scene view, a shader wallpaper, a picture or a
+/// video frame onto a window's back buffer (scaled, optionally with FXAA, vignette and dither).
 pub struct Post {
     vs: ID3D11VertexShader,
     ps: ID3D11PixelShader,
@@ -289,10 +291,13 @@ impl Post {
         })
     }
 
+    /// `dither` adds a little noise of one 8-bit step, so the smooth gradients of a 10-bit source
+    /// do not turn into bands on the screen.
     #[allow(clippy::too_many_arguments)]
-    pub fn draw(&self, gpu: &Gpu, src: &ID3D11ShaderResourceView, (sw, sh): (u32, u32), rtv: &ID3D11RenderTargetView, (w, h): (u32, u32), uv: [f32; 4], fxaa: bool, vignette: f32) {
+    pub fn draw(&self, gpu: &Gpu, src: &ID3D11ShaderResourceView, (sw, sh): (u32, u32), rtv: &ID3D11RenderTargetView, (w, h): (u32, u32), uv: [f32; 4], fxaa: bool, vignette: f32, dither: bool) {
         let c = &gpu.ctx;
-        gpu.upload(&self.cb, &[PostCB { info: [1.0 / sw as f32, 1.0 / sh as f32, if fxaa { 1.0 } else { 0.0 }, vignette], uv }]);
+        let on = |b: bool| if b { 1.0 } else { 0.0 };
+        gpu.upload(&self.cb, &[PostCB { info: [1.0 / sw as f32, 1.0 / sh as f32, on(fxaa), vignette], uv, extra: [on(dither), 0.0, 0.0, 0.0] }]);
         unsafe {
             c.OMSetRenderTargets(Some(&[Some(rtv.clone())]), None);
             c.RSSetViewports(Some(&[viewport(w, h)]));
