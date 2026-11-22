@@ -79,6 +79,13 @@ nothing without a clear licence. The reasons:
 * It keeps a Microsoft Store listing possible: the Store asks that the publisher holds the rights to
   all content an app shows (policy 11.2).
 
+**Public domain is a fact, not a licence.** For mirrored files the tool accepts "Public Domain"
+only when the record's `licenceEvidence` names a US federal source (NASA, USGS), whose works have
+no copyright, or an author who died more than 70 years ago. The Public Domain Mark that photo
+sites let anyone set on a recent photo is a label, not a dedication, so such files need a CC0 or
+CC 4.0 statement by the author instead. When a package's licence file (CC0, say) and the author's
+own page (Public Domain Mark) disagree, the file stays out.
+
 **Why CC BY-SA 4.0 and MIT artwork are accepted now, and CC 3.0 is not.** The first catalogue only
 linked to files on the sources' servers. Desktop art from open-source projects (KDE, Fedora, Pop!_OS,
 Ubuntu) mostly comes under CC BY-SA 4.0, and has no server that a wallpaper app could use, so we
@@ -126,9 +133,11 @@ version with labels, dates or captions burnt in. HEVC needs a Windows extension,
 For CC BY images the credit is the image's own line from its page (for example "NASA, ESA, CSA,
 STScI; J. DePasquale, A. Koekemoer, A. Pagan (STScI)" or "ESO/B. Tafreshi"), full and unaltered,
 as ESA and ESO ask, followed by "ESA/Hubble", "ESA/Webb" or "ESO" and "CC BY 4.0". Mirrored
-pictures name the author as the source names them, the source with a link, the licence, and what
-we changed ("Changes: resized from 5120x2880 to 3840x2160, converted from PNG to JPEG (quality
-88), metadata removed.").
+files name the author as the source names them (for Ubuntu the package's `AUTHORS` file, with the
+file name's handle in brackets), the source with a link, the licence, and what we changed. The
+app shows only the `credit` field, so for a mirrored file it always ends with the change note
+("Changes: Resized from 5120x2880 to 3840x2160, converted from PNG to JPEG (quality 88), metadata
+removed."); a file that is byte for byte the original says `none` in `changes` and has no note.
 
 ## Sources
 
@@ -143,13 +152,28 @@ we changed ("Changes: resized from 5120x2880 to 3840x2160, converted from PNG to
 | [Pop!_OS wallpapers](https://github.com/pop-os/wallpapers) (mirrored) | CC BY-SA 4.0 for the works the README lists under Kate Hazen (designed for System76) and Nick Nazzaro (commissioned by System76) | those works without the Pop!_OS logo, slogans or mascots; never the Unsplash photos | author, "Pop!_OS wallpapers (System76)", link, CC BY-SA 4.0, changes |
 | [COSMIC wallpapers](https://github.com/pop-os/cosmic-wallpapers) (mirrored) | CC BY 4.0 for the files the README marks "Source: System76" | System76's own picture, not the logo or the NASA/ESA pictures | "System76", link, CC BY 4.0, changes |
 | [Fedora backgrounds](https://github.com/fedoradesign/backgrounds) (mirrored) | CC BY-SA 4.0 (`Attribution` file of each release tag, and the package spec) | the default wallpapers of Fedora 33 to 43, day and night where they differ | "Fedora Design Team", release, link, CC BY-SA 4.0, changes |
-| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 and CC0 entries only | community contest pictures whose file name the entry names exactly; no Canonical release artwork, no release mascots or logos, no Unsplash downloads, no 2.0 or 3.0 entries | title and author from the file name, "Ubuntu wallpapers", link, CC BY-SA 4.0, changes |
+| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 entries only (its CC0 entry does not match the photographers' own pages) | community contest pictures whose file name the entry names exactly; no Canonical release artwork, no release mascots or logos, no Unsplash downloads, no 2.0 or 3.0 entries, nothing whose author is unclear | title from the file name, author from the package's `AUTHORS` file, "Ubuntu wallpapers", link, licence, changes |
+| [Dareful](https://dareful.com/about-dareful-completely-free-4k-stock-video/) (mirrored loops) | CC BY 4.0, stated on the about page and on every clip page | calm nature and mood clips, cut into seamless 1080p loops | the clip's title, "Video courtesy of Dareful", link, CC BY 4.0, changes |
+| [ESA/Webb](https://esawebb.org/copyright/) and [ESA/Hubble](https://esahubble.org/copyright/) videos (mirrored loops) | CC BY 4.0 (music excluded; the loops have no sound) | slow pans and fly-throughs of nebulae | the video's credit line, unaltered, "ESA/Webb" or "ESA/Hubble", CC BY 4.0, changes |
+| [NASA Image and Video Library](https://images.nasa.gov) (mirrored loops) | Public domain (NASA media guidelines; a US federal source) | night views and aurora from the International Space Station | title, "Credit: NASA", link, changes |
+| [U.S. Geological Survey](https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits) (mirrored loops) | Public domain (the video page says "Public Domain"; a US federal source) | volcano footage | title, "Credit: U.S. Geological Survey", link, changes |
+| [Internet Archive](https://archive.org/details/rose_20200413), "VJ UNITED" by Marzia Braggion (mirrored loop) | CC BY 4.0 in the item's metadata, uploaded by the author | one abstract animation | title, author, link, CC BY 4.0, changes |
+| Our own AI loops (mirrored) | CC0 1.0, dedicated by the Kumo project | six loops made by the Kumo project with an AI video model (Wan 2.6, through ElevenLabs), marked as AI-generated | title, "made for Kumo with AI video generation (Wan 2.6)", CC0 1.0, how they were made |
+| Our own 3D scenes (mirrored) | CC BY 4.0, by the Kumo project | Neon Horizon, Neon District, Orbit (see [3D scenes](#3d-scenes)) | title, "a 3D scene by Kumo", CC BY 4.0 |
 
-**Fedora's licence files** disagree in one place: the `Attribution` file of every release tag, the
+**AI-generated content.** We take it only when we made it ourselves: generated by the Kumo project
+for Kumo, marked as AI-generated in its record (`aiGenerated`, its credit and its `changes`, which
+name the model and the date), dedicated to the public domain with CC0 1.0, and nothing that imitates
+an existing work, a brand or a person, or that was prompted with one. AI upscales or reworks of
+other people's pictures stay out, whatever licence they claim.
+
+**Fedora's licence files** disagree in two places: the `Attribution` file of every release tag, the
 repository's `COPYING` (the full CC BY-SA 4.0 International text) and the package spec
 (`License: CC-BY-SA-4.0`) all say 4.0, but `default/CC-BY-SA-4.0` holds the 3.0 Unported legal
 code under a "4.0" heading. We follow the three statements that name 4.0 with its URL; if the
-Fedora Design Team ever says otherwise, the Fedora items go.
+Fedora Design Team ever says otherwise, the Fedora items go. And the `Attribution` file at tag
+v42.0.0 is a stale copy of Fedora 41's (it names the F41 files); the F42 files are covered by the
+repository's `COPYING` and the f42-backgrounds package spec, both CC-BY-SA-4.0.
 
 For ESA and ESO images the tool takes the 3840x2160 desktop wallpaper (`wallpaper_uhd`) if the
 site made one; else the larger of the publication JPEG and the large JPEG that is landscape, at
@@ -209,7 +233,13 @@ first; `python tools/catalog.py build --only smk` still runs it (it asks for 384
   CC0 entries that are Unsplash downloads, elementary OS): the Unsplash licence, or an old Unsplash
   CC0 grant we cannot check with the photographer.
 * **Release mascots and logos** in KDE, Pop!_OS, COSMIC and Ubuntu artwork: brand marks as the
-  subject, whatever the licence of the picture.
+  subject, whatever the licence of the picture. A logo anywhere in the picture counts too (KDE's
+  Safe Landing has the KDE logo on the rocket's flag).
+* **Ubuntu's CC0 photos** (Voss, Yala Mountain, London Eye and the rest of that entry): CC0
+  appears only in the packager's file; on the photographers' own Flickr pages Voss and Yala
+  Mountain carry the Public Domain Mark, which is not a dedication, and a photo from 2015 is not in
+  the public domain. London Eye's own page could not be found, so it stays out with them. **Haukelivegen, Norway:** Ubuntu's `AUTHORS` says
+  "Mads", the original's XMP names someone else as creator and rights holder; author unclear.
 * **Budgie backgrounds** (CC0): the repository does not record per file who made each photo and
   where it came from, which its own rules ask of submitters. Not taken for now.
 * **KDE wallpapers under LGPL-3** and **Ubuntu entries under CC BY-SA 2.0/3.0 or CC BY 2.0**: not on
@@ -227,18 +257,27 @@ the public GitHub repository [Hamido212/kumo-wallpapers](https://github.com/Hami
   category, pixel size, bytes, sha256, the file and preview paths, the original's URL, size and
   hash, and where we read the licence. `loops/` (videos) and `scenes/` (`.kumo` 3D scenes) follow
   the same pattern with their own `items.json`.
-* `CREDITS.md` lists every file with title, author, source, licence and changes; `LICENSES/` has
-  the full licence texts; `README.md` says that every file keeps its own licence and how to report
-  a problem.
+* `CREDITS.md` lists every file (pictures, loops and scenes) with title, author, source, licence
+  and changes; `LICENSES/` has the full licence texts; `README.md` says that every file keeps its
+  own licence, that previews are scaled and cropped copies under their item's licence, which loops
+  are AI-generated, and how to report a problem; `tools/` (the loop scripts) is GPL-3.0-only.
+* **Every record needs** `changes` (`none` for a file that is byte for byte the original),
+  `licenceEvidence` (where and when the licence was read), `bytes`, `sha256`, a licence page the
+  tool knows for its licence (it never rewrites one), the full licence text in `LICENSES/` (public
+  domain excepted) and its line in `CREDITS.md`. `catalog.py build` fails when one is missing.
 * **Rules for a mirrored picture:** a licence from the list above, read on the source's own licence
   file or page for that exact file; the content rules of the catalogue (no people, logos, brand
-  marks, mascots or slogans as the subject, no text-heavy pictures, family-friendly); landscape,
-  at least 1920 px wide, aspect 1.3 to 2.4. Originals wider than 3840 px are scaled down with a
-  Lanczos filter, saved as a baseline JPEG at quality 88 (no progressive JPEG, for Kumo's memory),
-  or as PNG for flat art where that is smaller, without metadata, never above 6 MB. A person looks
-  at every picture before it goes in.
-* The first set (November 2026): 108 pictures, about 114 MB with previews: KDE 30, Fedora 19,
-  Pop!_OS 8, COSMIC 1 and Ubuntu 50, in the categories `desktop` (70) and `photo` (38).
+  marks, mascots or slogans as the subject, no logo anywhere in the picture, no text-heavy
+  pictures, family-friendly); landscape, at least 1920 px wide, aspect 1.3 to 2.4. A baseline
+  JPEG that needs no scaling is kept byte for byte, only its metadata blocks go. Everything else
+  is scaled down to at most 3840 px with a Lanczos filter and saved as a baseline JPEG at quality
+  88 (no progressive JPEG, for Kumo's memory), or as PNG for flat art where that is smaller, never
+  above 6 MB. No comment, EXIF, XMP, IPTC or colour profile may stay in a mirrored file or preview:
+  `mirror_pictures.py build` checks every file and fails otherwise. A person looks at every
+  picture before it goes in.
+* Today (November 2026): 102 pictures (KDE 29, Fedora 19, Pop!_OS 8, COSMIC 1, Ubuntu 45; in
+  the categories `desktop` 68 and `photo` 34), 32 loops (Dareful 12, ESA/Webb 6, ESA/Hubble 3,
+  NASA 3, USGS 1, Internet Archive 1, our own AI loops 6) and 3 scenes.
 * GitHub serves files of this repository only as long as they are plain files: no Git LFS (raw
   links would return the LFS pointer), and no file above GitHub's limit of 100 MB.
 * The catalogue item carries `bytes` and `sha256`, so the app refuses a file that changed. A
@@ -326,22 +365,31 @@ a mount instead of the work.
    both; delete the file and preview by hand), and push. The catalogue item stays, marked revoked
    by step 1. Deleting the file stops new downloads even in apps that still have an old catalogue.
    The file remains in the repository's git history; if the claim asks for that too, rewrite the
-   history and ask GitHub to drop cached views.
+   history and ask GitHub to drop cached views. A record in `loops/` or `scenes/items.json` may
+   instead stay with `"revoked": true` after its files are deleted: the build then lists the item
+   as revoked without looking for the files.
 3. Answer the sender within 72 hours, from the contact address in the
    [Impressum](https://kumo.hyos.tech/impressum) (`hello@hyos.tech`): what was removed and when.
 4. If the claim is unclear, keep the item removed while you check it with the source.
 
 ## 3D scenes
 
-3D scenes are what other wallpaper apps do not have, and the catalogue can carry them: the app
-already knows items of kind `scene`. **No scene is listed yet.** This section says what is ready
-and what has to happen first.
+3D scenes are what other wallpaper apps do not have. There are two kinds:
+
+* **Built in:** the Voxel Pagoda Garden from the start, and since 1.1.0 Metro Block, Autumn Village
+  and Winter Square, ship inside Kumo (`BUILTIN` in `src/library.rs`; the three are packed to
+  about 1 MB each). They are not catalogue items. Metro Block, Autumn Village and Winter Square use Mike Judge's Mini Mike's
+  Metro Minis (CC BY 4.0), credited on each scene's page and in `assets/third-party-notices.txt`.
+* **Download scenes in Discover:** Neon Horizon, Neon District and Orbit, made entirely by their
+  scripts in `scenes/` (`synthwave/`, `district/`, `orbit/`) with no third-party models. They are
+  listed from the mirror (`scenes/` of kumo-wallpapers, `scenes/items.json`) under CC BY 4.0, by
+  the Kumo project; the scripts that make them stay under Kumo's GPL. Their memory was measured
+  against the built-in pagoda in the same run and none needs more (numbers in
+  [scenes/README.md](../scenes/README.md)).
 
 **What a scene item is.** A `.kumo` file baked by the scripts in `scenes/` (see
 [scenes/README.md](../scenes/README.md)): a list of numbers and one block of vertices. It holds
-no code, no script and no texture. Three scenes exist: Metro Block, Autumn Village and Winter
-Square, about 5 MB each. These three ship inside Kumo (packed to about 1 MB each), so they are
-not catalogue items; what follows is for scenes that come later as downloads.
+no code, no script and no texture.
 
 **What the app does with it** (`src/catalog.rs`): it downloads the file from a host on its list
 with a cap of 50 MB, checks `bytes` and `sha256`, makes sure the file really is a scene (it starts
@@ -349,59 +397,35 @@ with `KUMO`), and reads it with the engine's own reader (`scene::parse`), which 
 number that would send the renderer outside its data. Only then does the file enter the library,
 with title, author, licence and credit, like any other download.
 
-**Where the files live.** Unlike pictures, scenes have no source server of their own, so we host
-them: the file and a 480x270 preview next to the catalogue on `kumo.hyos.tech`, which is on the
-app's list already (later `cdn.kumo.hyos.tech`). A scene that changes gets a new file name, so
-`bytes` and `sha256` of a listed file never change.
-
-**The item**, with the values of today's bake as an example:
+**The item** (from `scenes/items.json`, as the catalogue lists it):
 
 ```json
 {
-  "id": "kumo-metro-block",
-  "title": "Metro Block",
-  "author": "Kumo, with models by Mike Judge",
+  "id": "scene-orbit",
+  "title": "Orbit",
+  "author": "Kumo project (HYOS)",
   "kind": "scene",
   "category": "scenes",
   "source": "Kumo",
-  "sourceUrl": "https://github.com/Hamido212/kumo/tree/main/scenes/metro",
+  "sourceUrl": "https://github.com/Hamido212/kumo/tree/main/scenes/orbit",
   "license": "CC BY 4.0",
   "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
-  "credit": "“Metro Block”, a 3D scene by Kumo. Buildings, vehicles and street furniture: Mini Mike's Metro Minis by Mike Judge (github.com/mikelovesrobots/mmmm), converted to meshes, recoloured and arranged. Additional Artwork by Mike Judge. CC BY 4.0.",
-  "thumb": "https://kumo.hyos.tech/catalog/v1/scenes/metro-block-1.jpg",
-  "file": "https://kumo.hyos.tech/catalog/v1/scenes/metro-block-1.kumo",
-  "bytes": 4929444, "width": 0, "height": 0,
-  "duration": 0, "codec": "",
-  "sha256": "75b7f401458d301a5e34397b373123c3f2a37728fab459d73884aeb131ab89fb", "revoked": false
+  "credit": "“Orbit”, a 3D scene by Kumo: ... CC BY 4.0. Changes: Made for Kumo: baked by scenes/orbit/bake.mjs ...",
+  "thumb": "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/thumbs/scenes/scene-orbit.jpg",
+  "file": "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/scenes/scene-orbit.kumo",
+  "bytes": 3672568, "width": 0, "height": 0, "duration": 0, "codec": "",
+  "sha256": "…", "revoked": false
 }
 ```
 
-* `credit` is what CC BY 4.0 asks for in one line: the work, its author, the source, the licence
-  and that it was changed. The app shows it with the item and keeps it in the library. The same
-  facts are inside the file (`credits` in its manifest, with the name of every model used) and in
-  `assets/third-party-notices.txt`.
 * `sha256` is always filled in for scenes: we make the file, so we know it.
 * `width` and `height` are 0: a scene has no pixel size, it is drawn at the screen's.
+* A scene that changes gets a new file name, so `bytes` and `sha256` of a listed file never change.
 
-**Before the first scene can be listed:**
-
-1. **A licence for Kumo's own part.** The models are CC BY 4.0. The islands, ground and the
-   arrangement come from the GPL scripts in `scenes/`. The item needs one licence from the
-   catalogue's list, so the publisher has to decide to offer the baked scenes under CC BY 4.0
-   (the scene files name "GPL-3.0" for Kumo's part until then).
-2. **The tool** is ready: `check` accepts kind `scene` with a cap of 50 MB and no pixel size, the
-   category `scenes` ("3D scenes" / "3D-Szenen") exists, and the mirror source reads
-   `scenes/items.json` of the kumo-wallpapers repository, so scenes can be hosted there as well as
-   next to the catalogue.
-3. **A look at the Discover tab** with a scene item, from a local catalogue file (`KUMO_CATALOG`):
-   preview, the line under the title, download, and the scene running afterwards. The download
-   path is covered by tests, the look of a scene card is not.
-4. **Files on the website:** bake, render the preview with
-   `kumo.exe --shot preview.bmp --scene file.kumo --size 1920x1080 --hour 18.4`, scale it to
-   480x270, and put both next to the catalogue. Then build, review and deploy as for any change.
-
-**Memory.** A scene must not need much more memory than the built-in one; the numbers are in
-[scenes/README.md](../scenes/README.md). Measure a new scene before listing it.
+**A new download scene:** bake it, measure its memory against the built-in scene, render the
+preview with `kumo.exe --shot preview.bmp --scene file.kumo --size 1920x1080 --hour 18.4` and scale
+it to 480x270, add the file, the preview and its record (with `changes`, `licenceEvidence` and a
+line in `CREDITS.md`) to the mirror, then build, review and deploy as for any change.
 
 ## Next steps
 
@@ -410,8 +434,9 @@ app's list already (later `cdn.kumo.hyos.tech`). A scene that changes gets a new
   discourage hotlinking such as Wikimedia Commons, and for the Met and SMK.
 * **GNOME backgrounds** if 3.0 works are ever accepted, and **Ubuntu files whose
   `debian/copyright` entry differs from the file name** once Ubuntu corrects the entries.
-* **Listing the 3D scenes** from `scenes/`: what is ready and what is missing is under
-  [3D scenes](#3d-scenes) above.
+* **A look at the Discover tab** with the loop and scene items from a local catalogue file
+  (`KUMO_CATALOG`, the would-be catalogue of `--mirror-local`) before the mirror goes live: the
+  cards, the credit line, download, and the scene or loop running afterwards.
 * **A signed catalogue**, so the app can tell that the index really comes from us.
 * As Kumo is free, a later version could consider sources whose API is free for apps that do not
   charge (Coverr), each only after a written OK from the source.

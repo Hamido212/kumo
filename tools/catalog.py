@@ -63,7 +63,8 @@ CC0 = "https://creativecommons.org/publicdomain/zero/1.0/"
 CC_BY = "https://creativecommons.org/licenses/by/4.0/"
 CC_BY_SA = "https://creativecommons.org/licenses/by-sa/4.0/"
 MIT = "https://opensource.org/license/mit"
-LICENSES = {"Public Domain": {NASA_TERMS, PD_MARK}, "CC0 1.0": {CC0}, "CC BY 4.0": {CC_BY},
+USGS_TERMS = "https://www.usgs.gov/information-policies-and-instructions/copyrights-and-credits"
+LICENSES = {"Public Domain": {NASA_TERMS, USGS_TERMS, PD_MARK}, "CC0 1.0": {CC0}, "CC BY 4.0": {CC_BY},
             "CC BY-SA 4.0": {CC_BY_SA}, "MIT": {MIT}}
 CAPS = {"thumb": 8 << 20, "image": 80 << 20, "video": 500 << 20, "scene": 50 << 20}
 CODECS = {"h264", "hevc", "vp9", "av1"}
@@ -1054,16 +1055,22 @@ class Eso(EsaImages):
 # Our own mirror: freely licensed desktop art, loops and scenes in the public repository
 # Hamido212/kumo-wallpapers, served by raw.githubusercontent.com
 
-# Licence names as other tools write them -> the names of the allow-list
+# Licence names as other tools write them -> the names of the allow-list. The Public Domain Mark
+# is not a licence, so "PDM" is not accepted as a name; see public_domain_ok() for public domain.
 LICENSE_NAMES = {
-    "public domain": "Public Domain", "pd": "Public Domain", "pdm": "Public Domain", "pdm 1.0": "Public Domain",
+    "public domain": "Public Domain", "pd": "Public Domain",
     "cc0": "CC0 1.0", "cc0 1.0": "CC0 1.0", "cc0-1.0": "CC0 1.0",
     "cc by 4.0": "CC BY 4.0", "cc-by-4.0": "CC BY 4.0", "cc by-4.0": "CC BY 4.0",
     "cc by-sa 4.0": "CC BY-SA 4.0", "cc-by-sa-4.0": "CC BY-SA 4.0", "cc by sa 4.0": "CC BY-SA 4.0",
     "mit": "MIT", "mit license": "MIT",
 }
-LICENSE_URLS = {"Public Domain": PD_MARK, "CC0 1.0": CC0, "CC BY 4.0": CC_BY, "CC BY-SA 4.0": CC_BY_SA, "MIT": MIT}
+# the full text every licence needs in the mirror's LICENSES/ folder (public domain needs none)
+LICENSE_FILES = {"CC0 1.0": "CC0-1.0.txt", "CC BY 4.0": "CC-BY-4.0.txt", "CC BY-SA 4.0": "CC-BY-SA-4.0.txt", "MIT": "MIT.txt"}
 MIRROR_PATH = re.compile(r"[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*")
+# Public domain is accepted for a mirror item only when its licenceEvidence names a US federal
+# source (whose works have no copyright) or an author who died long enough ago
+FEDERAL = re.compile(r"\b(NASA|nasa\.gov|USGS|usgs\.gov|U\.\s?S\. Geological Survey)\b")
+DIED = re.compile(r"\b(?:died|d\.|death)\D{0,12}(\d{4})\b", re.I)
 
 
 def license_name(text):
@@ -1072,15 +1079,15 @@ def license_name(text):
     return LICENSE_NAMES.get(key, str(text or "").strip())
 
 
-def license_url(name, url):
-    """The page for an allowed licence: the given one if it is one of the allow-list's (ignoring
-    http and a deed suffix), else the canonical page."""
-    url = re.sub(r"^http://", "https://", str(url or "").strip())
-    url = re.sub(r"(deed|legalcode)(\.[a-z-]+)?$", "", url)
-    if url and not url.endswith("/") and "creativecommons.org" in url:
-        url += "/"
-    allowed = LICENSES.get(name, set())
-    return url if url in allowed else LICENSE_URLS.get(name, url)
+def public_domain_ok(evidence):
+    """None if a mirror item's licence evidence supports 'Public Domain', else the reason."""
+    if FEDERAL.search(evidence):
+        return None
+    years = [int(y) for y in DIED.findall(evidence)]
+    if years and max(years) <= last_death_year():
+        return None
+    return (f"public domain needs a US federal source (NASA, USGS) or an author who died by "
+            f"{last_death_year()} in its licenceEvidence; anything else needs CC0 or a CC 4.0 licence")
 
 
 def is_mirrored(item):
@@ -1113,7 +1120,12 @@ class Mirror(Source):
     credit, the changes we made, pixel size, bytes, sha256 and the file and preview paths. This
     source reads them from a local copy of the repository and points the catalogue at
     MIRROR_URL. The records come from different tools, so field names are read tolerantly and a
-    missing items.json is skipped. Every mirror item carries bytes and sha256, which the app checks."""
+    missing items.json is skipped. Every mirror item carries bytes and sha256, which the app checks.
+
+    A record that is incomplete (no changes, licenceEvidence, bytes or sha256, no licence text in
+    LICENSES/, no line in CREDITS.md, or a licence page the allow-list does not know) fails the
+    build: it lands in self.problems. A record marked "revoked": true stays in the catalogue as
+    revoked, so apps remove copies, the same as an entry in catalog-exclude.txt."""
     name = "mirror"
     folder = MIRROR_DIR
     local = False  # True: check against the local files instead of asking GitHub
@@ -1121,6 +1133,9 @@ class Mirror(Source):
 
     def candidates(self):
         self.local_files = {}  # catalogue URL -> local path, for --mirror-local and the review sheet
+        self.problems = []
+        credits_file = self.folder / "CREDITS.md"
+        self.credits = credits_file.read_text(encoding="utf-8") if credits_file.exists() else ""
         for part, kind, category in self.PARTS:
             path = self.folder / part / "items.json"
             if not path.exists():
@@ -1161,19 +1176,29 @@ class Mirror(Source):
         kind = str(get("kind") or kind)
         if kind not in KINDS:
             return self.drop(f"unknown kind {kind}")
-        if rec.get("revoked") is True:
-            return self.drop("revoked in items.json")
+        revoked = rec.get("revoked") is True
+
+        def incomplete(why):
+            self.problems.append(f"mirror item {item_id} ({part}/items.json): {why}")
+            return self.drop("incomplete record (the build fails, see ERROR)")
+
         title, author = clean(get("title")), clean(get("author", "creator", "artist"))
         lic = license_name(get("license", "licence", "licenseName", "license_name"))
         if lic not in LICENSES:
             return self.drop(f"licence {lic or 'missing'} is not on the allow-list")
+        evidence = clean(get("licenceEvidence", "licenseEvidence", "licence_evidence", "license_evidence"))
+        lic_url = str(get("licenseUrl", "licenceUrl", "license_url", "licence_url")).strip()
+        if lic_url not in LICENSES[lic]:  # never rewritten: a page the tool does not know is a question for a person
+            return incomplete(f"licence page {lic_url or 'missing'} is not one the allow-list knows for {lic}")
+        if lic == "Public Domain" and not revoked and public_domain_ok(evidence):
+            return self.drop(public_domain_ok(evidence))
         file = self.relpath(get("path", "file", "mirrorPath", "mirror_path"), part)
         thumb = self.relpath(get("thumb", "preview", "previewPath", "preview_path", "thumbPath"), "thumbs/" + part)
         if not file or not thumb:
             return self.drop("no file or preview path inside the repository")
         size, digest = get("bytes"), str(get("sha256")).lower()
         if not isinstance(size, int) or isinstance(size, bool) or size <= 0 or not re.fullmatch(r"[0-9a-f]{64}", digest):
-            return self.drop("bytes or sha256 missing")
+            return incomplete("bytes or sha256 missing")
         try:
             width, height = int(get("width") or 0), int(get("height") or 0)
         except (TypeError, ValueError):
@@ -1184,10 +1209,20 @@ class Mirror(Source):
             return self.drop(f"video codec {get('codec') or 'missing'}")
         if not title or not author or not get("sourceUrl", "source_url", "sourcePage", "source_page", "page"):
             return self.drop("title, author or source page missing")
+        changes = re.sub(r"^changes:\s*", "", clean(get("changes")), flags=re.I)
+        if not revoked:
+            if not changes:
+                return incomplete("no 'changes' (write 'none' for a file that is byte for byte the original)")
+            if not evidence:
+                return incomplete("no 'licenceEvidence' (where the licence was read)")
+            if lic in LICENSE_FILES and not (self.folder / "LICENSES" / LICENSE_FILES[lic]).is_file():
+                return incomplete(f"no full text of {lic} in LICENSES/{LICENSE_FILES[lic]}")
+            if f"`{file}`" not in self.credits:
+                return incomplete(f"no line for {file} in CREDITS.md")
+        # the app shows only the credit, so it carries the change note
         credit = clean(get("credit", "creditLine", "credit_line"))
-        changes = clean(get("changes"))
-        if changes and changes.rstrip(".").lower() not in credit.lower():
-            credit = f"{with_stop(credit)} {with_stop(changes)}" if credit else with_stop(changes)
+        if changes.rstrip(".").lower() not in ("", "none") and changes.rstrip(".").lower() not in credit.lower():
+            credit = f"{with_stop(credit)} Changes: {with_stop(changes)}" if credit else f"Changes: {with_stop(changes)}"
         category = str(get("category"))
         if category not in {c["id"] for c in CATEGORIES}:
             category = {"pictures": "desktop", "loops": "loops", "scenes": "scenes"}[part]
@@ -1200,7 +1235,7 @@ class Mirror(Source):
             "source": clean(get("source", "sourceName", "source_name")),
             "sourceUrl": str(get("sourceUrl", "source_url", "sourcePage", "source_page", "page")),
             "license": lic,
-            "licenseUrl": license_url(lic, get("licenseUrl", "licenceUrl", "license_url", "licence_url")),
+            "licenseUrl": lic_url,
             "credit": credit,
             "thumb": MIRROR_URL + urllib.parse.quote(thumb),
             "file": MIRROR_URL + urllib.parse.quote(file),
@@ -1210,6 +1245,7 @@ class Mirror(Source):
             "codec": str(get("codec")) if kind == "video" else "",
             "sha256": digest,
             "_text": title,
+            "_revoked": revoked,
         }
         self.local_files[item["file"]] = self.folder / file
         self.local_files[item["thumb"]] = self.folder / thumb
@@ -1371,7 +1407,7 @@ def build(args):
     previous = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {"items": []}
     Cleveland.published = {i["id"] for i in previous["items"]}
     Mirror.folder, Mirror.local = pathlib.Path(args.mirror), args.mirror_local
-    kept, report, local_thumbs = [], [], {}
+    kept, report, local_thumbs, mirror_problems = [], [], {}, []
     for cls in SOURCES + [s for s in DISABLED if s.name == args.only]:
         if args.only and cls.name != args.only:
             kept += [i for i in previous["items"] if source_of(i) == cls.name]
@@ -1399,6 +1435,11 @@ def build(args):
             if any(i["id"] == item["id"] for i in kept):
                 source.drop("duplicate id")
                 continue
+            if item.pop("_revoked", False):  # a takedown in the mirror: listed as revoked, files not checked
+                item["revoked"] = True
+                kept.append({k: item[k] for k in ITEM_FIELDS})
+                source.dropped["revoked in items.json (listed as revoked)"] += 1
+                continue
             local = isinstance(source, Mirror) and source.local
             if source.verify_local(item) if local else verify(net, source, item):
                 if local:
@@ -1409,6 +1450,7 @@ def build(args):
                 count += 1
         net.save()
         report.append((source.name, source.considered, count, source.dropped))
+        mirror_problems += getattr(source, "problems", [])
 
     for old in previous["items"]:
         if old["id"] in revoked and not any(i["id"] == old["id"] for i in kept):
@@ -1446,7 +1488,7 @@ def build(args):
     print("hosts: " + ", ".join(sorted({urllib.parse.urlsplit(i[k]).hostname for i in kept for k in ("thumb", "file")})))
     print(f"{len(kept)} items, {len(text.encode()) // 1024} KB, {net.requests} requests -> {out.resolve()}")
     print(f"contact sheet: {REVIEW.relative_to(ROOT)}")
-    problems = check_catalog(catalog)
+    problems = mirror_problems + check_catalog(catalog)
     for p in problems:
         print("ERROR " + p)
     return 1 if problems else 0
