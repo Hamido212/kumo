@@ -23,15 +23,16 @@ float3 sunColor() { return lerp(float3(1.0, 0.42, 0.14), float3(1.0, 0.88, 0.72)
 float3 skyColor(float3 d) {
   float e = max(d.y, 0.0);
   float day = ss(-0.1, 0.45, SUN);
-  float3 zen = lerp(float3(0.0012, 0.002, 0.006), float3(0.018, 0.045, 0.12), day);
-  float3 hor = lerp(float3(0.005, 0.008, 0.016), float3(0.10, 0.14, 0.19), day);
-  zen = lerp(zen, float3(0.010, 0.014, 0.045), WARM * 0.8);
-  hor = lerp(hor, float3(0.40, 0.15, 0.065), WARM);
-  float3 c = zen + (hor - zen) * exp(-e * 5.5);
+  float3 zen = lerp(float3(0.0012, 0.002, 0.006), float3(0.012, 0.032, 0.09), day);
+  float3 hor = lerp(float3(0.005, 0.008, 0.016), float3(0.07, 0.10, 0.14), day);
+  zen = lerp(zen, float3(0.005, 0.010, 0.042), WARM * 0.85);
+  hor = lerp(hor, float3(0.42, 0.15, 0.06), WARM);
+  // the warm band hugs the horizon at dusk, the haze of day reaches higher
+  float3 c = zen + (hor - zen) * exp(-e * lerp(5.0, 10.0, WARM));
   float3 s = sunDir();
   float sd = max(dot(d, s), 0.0);
   float up = ss(-0.12, 0.05, s.y);
-  c += sunColor() * (pow(sd, 12.0) * 0.10 + pow(sd, 150.0) * 0.35) * up * (0.35 + 0.65 * WARM);
+  c += sunColor() * (pow(sd, 16.0) * 0.08 + pow(sd, 150.0) * 0.35) * up * (0.35 + 0.65 * WARM);
   float md = max(dot(d, moonDir()), 0.0);
   c += float3(0.30, 0.38, 0.55) * (pow(md, 60.0) * 0.06 + pow(md, 600.0) * 0.12) * NIGHT;
   return c;

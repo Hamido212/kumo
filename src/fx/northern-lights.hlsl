@@ -17,8 +17,11 @@ float3 highColor() { return pick(float3(0.20, 0.05, 0.42), float3(0.38, 0.03, 0.
 // depth of a curtain's foot at sideways position x: from far on the left to near on the right,
 // with folds that drift and change shape over minutes
 float foot(float x, float z0, float tilt, float seed, float t) {
+  // the straight line, bent smoothly so it never comes nearer than 1.3
+  float base = z0 - tilt * x;
+  base = 1.3 + 0.5 * log(1.0 + exp(2.0 * (base - 1.3)));
   float fold = 3.2 * gnoise1(x * 0.55 + t * 0.012, seed) + 1.1 * gnoise1(x * 1.5 - t * 0.02, seed + 5.0);
-  return max(z0 - tilt * x, 1.2) + fold * ss(0.0, 2.5, z0 - tilt * x);
+  return base + fold * ss(1.3, 3.0, base);
 }
 
 // the sheet's light where the ray crosses its foot at depth z; dgdz: how steeply the ray crosses
@@ -34,33 +37,31 @@ float3 sheet(float2 dir, float z, float dgdz, float seed, float strength, float 
   // rays run up the sheet and drift along it; brightness wanders along the arc over minutes
   float rays = 0.2 + 0.8 * pow(vnoise(float2(x * 5.0 + t * 0.17, above * 0.45 - t * 0.035 + seed)), 2.0);
   rays *= 0.65 + 0.7 * vnoise1(x * 17.0 - t * 0.28, seed + 3.0);
-  float active = ss(0.2, 0.75, vnoise1(x * 0.3 + t * 0.013 + seed * 3.0, seed)) * ss(-12.0, -6.0, x) * ss(10.0, 5.0, x);
+  float active = ss(0.05, 0.6, vnoise1(x * 0.3 + t * 0.013 + seed * 3.0, seed)) * ss(-12.0, -6.0, x) * ss(10.0, 5.0, x);
+  // fade out at both ends of the searched depths, so nothing ends in a hard line
+  float range = ss(0.7, 1.2, z) * ss(26.0, 16.0, z);
   float3 col = lerp(lowColor(), highColor(), ss(0.05, 1.5, above));
   // a thin rose fringe under the green edge, as in strong displays
   col += float3(0.8, 0.10, 0.30) * ss(edge, -edge, above) * ss(-0.08, 0.0, above) * (STYLE == 0 ? 0.6 : 0.0);
-  return col * (body * rays * fold + haze) * active * exp(-z * 0.045) * strength;
+  return col * (body * rays * fold + haze) * active * range * exp(-z * 0.045) * strength;
 }
 
 // light of one curtain along the view ray; dir: sideways and upwards per unit of depth. The ray
 // may pass over a folded foot more than once: up to three crossings count.
 float3 curtain(float2 dir, float z0, float tilt, float seed, float strength, float t) {
-  float3 depths = -1.0, slopes = 0.0;
-  int n = 0;
-  float zPrev = 0.9;
+  float3 light = 0.0;
+  float zPrev = 0.7;
   float gPrev = foot(zPrev * dir.x, z0, tilt, seed, t) - zPrev;
+  // a real loop (not unrolled): the sheet's code exists once
   [loop] for (int k = 1; k < SAMPLES; k++) {
-    float z = 0.9 * pow(28.0, k / (SAMPLES - 1.0));
+    float z = 0.7 * pow(40.0, k / (SAMPLES - 1.0));
     float g = foot(z * dir.x, z0, tilt, seed, t) - z;
-    if (g * gPrev <= 0.0 && gPrev != g && n < 3) {
-      float zc = lerp(zPrev, z, gPrev / (gPrev - g)), s = (g - gPrev) / (z - zPrev);
-      if (n == 0) { depths.x = zc; slopes.x = s; } else if (n == 1) { depths.y = zc; slopes.y = s; } else { depths.z = zc; slopes.z = s; }
-      n++;
+    [branch] if (g * gPrev <= 0.0 && gPrev != g) {
+      light += sheet(dir, lerp(zPrev, z, gPrev / (gPrev - g)), (g - gPrev) / (z - zPrev), seed, strength, t);
     }
     zPrev = z;
     gPrev = g;
   }
-  float3 light = 0.0;
-  [loop] for (int h = 0; h < n; h++) light += sheet(dir, depths[h], slopes[h], seed, strength, t);
   return light;
 }
 

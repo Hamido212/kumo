@@ -47,52 +47,61 @@ float u01(uint h) { return float(h >> 8) * (1.0 / 16777216.0); }
 // 0..1 per integer cell
 float hash(float2 cell) { return u01(hashu(int2(floor(cell)))); }
 float2 hash2(float2 cell) { uint h = hashu(int2(floor(cell))); return float2(u01(h), u01(pcg(h))); }
-float3 hash3(float2 cell) { uint h = hashu(int2(floor(cell))); uint g = pcg(h); return float3(u01(h), u01(g), u01(pcg(g))); }
+// three numbers from one hash: two of 10 bits (positions), one of 12 bits
+float3 hash3(float2 cell) {
+  uint h = hashu(int2(floor(cell)));
+  return float3(h & 1023u, (h >> 10) & 1023u, h >> 20) * float3(1.0 / 1023.0, 1.0 / 1023.0, 1.0 / 4095.0);
+}
 
 // ---------------------------------------------------------------- noise
+//
+// The random numbers behind the noise come from a 256x256 texture of random bytes that
+// shader.rs makes once. One Gather fetches the four corners of a cell, which is much cheaper
+// than hashing them (integer multiplies are slow on many integrated GPUs); the interpolation
+// stays in full float precision, so even very soft noise shows no steps. Channels: r and g
+// gradient x and y, b values, a 1D gradients.
+
+Texture2D noiseTex : register(t0);
+SamplerState noiseSmp : register(s0); // point, wrap
+
+// the four corners of cell i in Gather order: x (0,1), y (1,1), z (1,0), w (0,0)
+float2 cellUv(float2 i) { return (i + 1.0) * (1.0 / 256.0); }
 
 // value noise, 0..1
 float vnoise(float2 p) {
   float2 i = floor(p), f = p - i;
   float2 u = f * f * (3.0 - 2.0 * f);
-  int2 c = int2(i);
-  float a = u01(hashu(c)), b = u01(hashu(c + int2(1, 0)));
-  float d = u01(hashu(c + int2(0, 1))), e = u01(hashu(c + int2(1, 1)));
-  return lerp(lerp(a, b, u.x), lerp(d, e, u.x), u.y);
+  float4 v = noiseTex.GatherBlue(noiseSmp, cellUv(i));
+  return lerp(lerp(v.w, v.z, u.x), lerp(v.x, v.y, u.x), u.y);
 }
 
 // 1D value noise along x of row `row`, 0..1
 float vnoise1(float x, float row) {
   float i = floor(x), f = x - i;
-  float u = f * f * (3.0 - 2.0 * f);
-  int2 c = int2(int(i), int(row));
-  return lerp(u01(hashu(c)), u01(hashu(c + int2(1, 0))), u);
-}
-
-float2 grad(int2 c) {
-  uint h = hashu(c);
-  return float2(float(h & 0xffffu), float(h >> 16)) * (2.0 / 65535.0) - 1.0;
+  float4 v = noiseTex.GatherBlue(noiseSmp, cellUv(float2(i, row)));
+  return lerp(v.w, v.z, f * f * (3.0 - 2.0 * f));
 }
 
 // gradient noise, about -0.7..0.7, smoother than value noise
 float gnoise(float2 p) {
   float2 i = floor(p), f = p - i;
   float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-  int2 c = int2(i);
-  float a = dot(grad(c), f);
-  float b = dot(grad(c + int2(1, 0)), f - float2(1, 0));
-  float d = dot(grad(c + int2(0, 1)), f - float2(0, 1));
-  float e = dot(grad(c + int2(1, 1)), f - float2(1, 1));
+  float2 uv = cellUv(i);
+  float4 gx = noiseTex.GatherRed(noiseSmp, uv) * 2.0 - 1.0;
+  float4 gy = noiseTex.GatherGreen(noiseSmp, uv) * 2.0 - 1.0;
+  float a = gx.w * f.x + gy.w * f.y;
+  float b = gx.z * (f.x - 1.0) + gy.z * f.y;
+  float d = gx.x * f.x + gy.x * (f.y - 1.0);
+  float e = gx.y * (f.x - 1.0) + gy.y * (f.y - 1.0);
   return lerp(lerp(a, b, u.x), lerp(d, e, u.x), u.y);
 }
 
-// 1D gradient noise along x of row `row`, about -0.5..0.5, half the cost of gnoise
+// 1D gradient noise along x of row `row`, about -0.5..0.5
 float gnoise1(float x, float row) {
   float i = floor(x), f = x - i;
   float u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-  int2 c = int2(int(i), int(row));
-  float a = u01(hashu(c)) * 2.0 - 1.0, b = u01(hashu(c + int2(1, 0))) * 2.0 - 1.0;
-  return lerp(a * f, b * (f - 1.0), u);
+  float4 g = noiseTex.GatherAlpha(noiseSmp, cellUv(float2(i, row))) * 2.0 - 1.0;
+  return lerp(g.w * f, g.z * (f - 1.0), u);
 }
 
 static const float2x2 OCTAVE = float2x2(1.6, 1.2, -1.2, 1.6); // rotate by 37 degrees, scale by 2

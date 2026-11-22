@@ -3,9 +3,10 @@
 //! the shader gets one small constant buffer (time, size, time of day, colour style) and fills a
 //! 10-bit target below screen size, which the post pass scales to each screen and dithers.
 //!
-//! What one costs: a pixel shader of a few kB and a 48-byte constant buffer. The render target
-//! belongs to the engine and is freed with all others whenever nothing is drawn. The library
-//! entries (title, thumbnail) are in library.rs.
+//! What one costs: a pixel shader of a few kB, a 48-byte constant buffer and a 256 kB texture of
+//! random bytes for the noise (made once, nothing is loaded). The render target belongs to the
+//! engine and is freed with all others whenever nothing is drawn. The library entries (title,
+//! thumbnail) are in library.rs.
 
 use crate::config::{Settings, TimeMode};
 use crate::gfx::{viewport, Gpu, Target};
@@ -125,6 +126,15 @@ struct FxCB {
     sky: [f32; 4],
 }
 
+/// Side of the noise texture.
+pub const NOISE: u32 = 256;
+
+/// The random bytes behind the shaders' noise (see src/fx/common.hlsl): the same every time.
+pub fn noise_bytes() -> Vec<u8> {
+    let mut rng = crate::world::Rng::new(0x6b756d6f);
+    (0..NOISE * NOISE * 4).map(|_| (rng.next() * 256.0) as u8).collect()
+}
+
 /// A shader wallpaper on screen.
 pub struct Animation {
     pub effect: &'static Effect,
@@ -133,12 +143,27 @@ pub struct Animation {
     vs: ID3D11VertexShader,
     ps: ID3D11PixelShader,
     cb: ID3D11Buffer,
+    noise: ID3D11ShaderResourceView,
+    smp: ID3D11SamplerState,
     rs: ID3D11RasterizerState,
     ds: ID3D11DepthStencilState,
 }
 
 impl Animation {
     pub fn new(gpu: &Gpu, effect: &'static Effect) -> Result<Animation> {
+        // 256 kB on the GPU, made once; the bytes on the CPU go right away
+        let noise = crate::gfx::texture_bgra(gpu, &noise_bytes(), NOISE, NOISE)?;
+        let desc = D3D11_SAMPLER_DESC {
+            Filter: D3D11_FILTER_MIN_MAG_MIP_POINT,
+            AddressU: D3D11_TEXTURE_ADDRESS_WRAP,
+            AddressV: D3D11_TEXTURE_ADDRESS_WRAP,
+            AddressW: D3D11_TEXTURE_ADDRESS_WRAP,
+            ComparisonFunc: D3D11_COMPARISON_NEVER,
+            MaxLOD: f32::MAX,
+            ..Default::default()
+        };
+        let mut smp = None;
+        unsafe { gpu.dev.CreateSamplerState(&desc, Some(&mut smp))? };
         Ok(Animation {
             effect,
             clock: Clock::default(),
@@ -146,6 +171,8 @@ impl Animation {
             vs: gpu.vertex_shader(include_bytes!(concat!(env!("OUT_DIR"), "/VSFull.cso")))?,
             ps: gpu.pixel_shader(effect.code)?,
             cb: gpu.constants::<FxCB>()?,
+            noise,
+            smp: smp.unwrap(),
             rs: gpu.raster(D3D11_CULL_NONE)?,
             ds: gpu.depth(false, false)?,
         })
@@ -179,7 +206,10 @@ impl Animation {
             c.VSSetShader(&self.vs, None);
             c.PSSetShader(&self.ps, None);
             c.PSSetConstantBuffers(0, Some(&[Some(self.cb.clone())]));
+            c.PSSetShaderResources(0, Some(&[Some(self.noise.clone())]));
+            c.PSSetSamplers(0, Some(&[Some(self.smp.clone())]));
             c.Draw(3, 0);
+            c.PSSetShaderResources(0, Some(&[None]));
         }
     }
 }
@@ -271,6 +301,16 @@ mod tests {
             }
             last = now;
         }
+    }
+
+    #[test]
+    fn the_noise_is_the_same_every_time_and_evenly_spread() {
+        let a = noise_bytes();
+        assert_eq!(a.len(), (NOISE * NOISE * 4) as usize);
+        assert!(a == noise_bytes());
+        let mean = a.iter().map(|&b| b as f64).sum::<f64>() / a.len() as f64;
+        assert!((mean - 127.5).abs() < 1.5, "{mean}");
+        assert!(a.iter().any(|&b| b == 0) && a.iter().any(|&b| b == 255));
     }
 
     #[test]
