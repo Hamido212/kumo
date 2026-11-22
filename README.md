@@ -1,7 +1,7 @@
 # Kumo ☁️ — a featherweight live wallpaper engine for Windows
 
 Kumo (雲, "cloud") shows animated 3D scenes, videos and pictures behind your desktop icons, with
-no browser and no .NET, in a single 19 MB program. It comes with a floating voxel island: a
+no browser and no .NET, in a single 24 MB program. It comes with a floating voxel island: a
 five-storey pagoda, falling cherry blossoms, a koi pond, a waterfall and a real day and night
 that follow your clock. Three more scenes are built in: a city block, an autumn village and a
 snowy square.
