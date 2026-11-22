@@ -1,6 +1,7 @@
 """Builds and checks the online wallpaper catalogue that Kumo's Discover tab reads:
 site/catalog/v1/catalog.json, deployed with the website as https://kumo.hyos.tech/catalog/v1/catalog.json.
-We host only this index. The app downloads each file directly from the source's own server.
+We host this index. The app downloads each file directly from the source's own server, or, for
+the files we mirror ourselves, from the public repository Hamido212/kumo-wallpapers on GitHub.
 
     python tools/catalog.py build      collect, filter and verify items, write the catalogue
     python tools/catalog.py check      validate an existing catalogue offline
@@ -8,9 +9,14 @@ We host only this index. The app downloads each file directly from the source's 
 Options for build:
     --user-agent TEXT   the User-Agent sent with every request
     --refresh           ignore the cache in target/catalog-cache and ask the servers again
-    --only NAME         run one source (svs, cleveland, met, smk, esahubble, esawebb), keep the others
+    --only NAME         run one source (svs, cleveland, met, smk, esahubble, esawebb, eso, mirror), keep the others
     --hash              download every file once to fill in sha256 (and the codec and length of videos)
     --thumbs DIR        download every preview and write DIR/<id>.jpg at 480x270 (needs Windows)
+    --mirror DIR        a local copy of the kumo-wallpapers repository (default: ../kumo-wallpapers
+                        next to this repository); its pictures/, loops/ and scenes/items.json are read
+    --mirror-local      check mirror items against the files in DIR (size and sha256) instead of
+                        asking GitHub, for files that are not published yet
+    --out FILE          write the catalogue there instead of site/catalog/v1/catalog.json
 
 The rules (licences, EU copyright term, wallpaper fitness, family-friendly content) are explained
 in docs/discover.md. Items can be removed by hand in tools/catalog-exclude.txt. Every build also
@@ -43,16 +49,23 @@ DELAY = 0.4  # seconds between two requests: everything runs one request at a ti
 # The app downloads over https from these hosts only (src/catalog.rs has the same list).
 ALLOWED_HOSTS = {
     "kumo.hyos.tech", "cdn.kumo.hyos.tech", "svs.gsfc.nasa.gov", "openaccess-cdn.clevelandart.org",
-    "cdn.esahubble.org", "cdn.esawebb.org", "cdn.eso.org",
+    "cdn.esahubble.org", "cdn.esawebb.org", "cdn.eso.org", "raw.githubusercontent.com",
 }
+# Our own file mirror: a public GitHub repository. raw.githubusercontent.com serves every public
+# repository, so the tool accepts that host only below this path.
+MIRROR_URL = "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/"
+MIRROR_DIR = ROOT.parent / "kumo-wallpapers"  # the local copy, next to this repository
 PROBE_BYTES = 65536  # how much of a JPEG a size probe may read: enough for the frame header
 # The licence allow-list: name -> the pages that may explain it
 NASA_TERMS = "https://www.nasa.gov/nasa-brand-center/images-and-media/"
 PD_MARK = "https://creativecommons.org/publicdomain/mark/1.0/"
 CC0 = "https://creativecommons.org/publicdomain/zero/1.0/"
 CC_BY = "https://creativecommons.org/licenses/by/4.0/"
-LICENSES = {"Public Domain": {NASA_TERMS, PD_MARK}, "CC0 1.0": {CC0}, "CC BY 4.0": {CC_BY}}
-CAPS = {"thumb": 8 << 20, "image": 80 << 20, "video": 500 << 20}
+CC_BY_SA = "https://creativecommons.org/licenses/by-sa/4.0/"
+MIT = "https://opensource.org/license/mit"
+LICENSES = {"Public Domain": {NASA_TERMS, PD_MARK}, "CC0 1.0": {CC0}, "CC BY 4.0": {CC_BY},
+            "CC BY-SA 4.0": {CC_BY_SA}, "MIT": {MIT}}
+CAPS = {"thumb": 8 << 20, "image": 80 << 20, "video": 500 << 20, "scene": 50 << 20}
 CODECS = {"h264", "hevc", "vp9", "av1"}
 # Kumo scales every picture to the screen anyway, and decoding a huge (progressive) JPEG can take
 # hundreds of MB, which would break the low-RAM promise. 40 MP is about 8400 x 4700.
@@ -63,7 +76,12 @@ CATEGORIES = [
     {"id": "earth", "title": {"en": "Earth", "de": "Erde"}},
     {"id": "japan", "title": {"en": "Japan (ukiyo-e)", "de": "Japan (Ukiyo-e)"}},
     {"id": "landscape", "title": {"en": "Landscape painting", "de": "Landschaftsmalerei"}},
+    {"id": "desktop", "title": {"en": "Desktop art", "de": "Desktop-Kunst"}},
+    {"id": "photo", "title": {"en": "Photography", "de": "Fotografie"}},
+    {"id": "loops", "title": {"en": "Animated loops", "de": "Animierte Loops"}},
+    {"id": "scenes", "title": {"en": "3D scenes", "de": "3D-Szenen"}},
 ]
+KINDS = ("image", "video", "scene")
 ID = re.compile(r"[a-z0-9-]{1,64}")
 ITEM_FIELDS = ["id", "title", "author", "kind", "category", "source", "sourceUrl", "license", "licenseUrl",
                "credit", "thumb", "file", "bytes", "width", "height", "duration", "codec", "sha256", "revoked"]
@@ -1032,7 +1050,194 @@ class Eso(EsaImages):
         return item
 
 
-SOURCES = [Svs, Cleveland, EsaHubble, EsaWebb, Eso]
+# --------------------------------------------------------------------------------------------
+# Our own mirror: freely licensed desktop art, loops and scenes in the public repository
+# Hamido212/kumo-wallpapers, served by raw.githubusercontent.com
+
+# Licence names as other tools write them -> the names of the allow-list
+LICENSE_NAMES = {
+    "public domain": "Public Domain", "pd": "Public Domain", "pdm": "Public Domain", "pdm 1.0": "Public Domain",
+    "cc0": "CC0 1.0", "cc0 1.0": "CC0 1.0", "cc0-1.0": "CC0 1.0",
+    "cc by 4.0": "CC BY 4.0", "cc-by-4.0": "CC BY 4.0", "cc by-4.0": "CC BY 4.0",
+    "cc by-sa 4.0": "CC BY-SA 4.0", "cc-by-sa-4.0": "CC BY-SA 4.0", "cc by sa 4.0": "CC BY-SA 4.0",
+    "mit": "MIT", "mit license": "MIT",
+}
+LICENSE_URLS = {"Public Domain": PD_MARK, "CC0 1.0": CC0, "CC BY 4.0": CC_BY, "CC BY-SA 4.0": CC_BY_SA, "MIT": MIT}
+MIRROR_PATH = re.compile(r"[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*")
+
+
+def license_name(text):
+    """The allow-list name for a licence as a tool or a person wrote it, or the text unchanged."""
+    key = re.sub(r"\s+", " ", str(text or "").replace("_", "-").strip().lower())
+    return LICENSE_NAMES.get(key, str(text or "").strip())
+
+
+def license_url(name, url):
+    """The page for an allowed licence: the given one if it is one of the allow-list's (ignoring
+    http and a deed suffix), else the canonical page."""
+    url = re.sub(r"^http://", "https://", str(url or "").strip())
+    url = re.sub(r"(deed|legalcode)(\.[a-z-]+)?$", "", url)
+    if url and not url.endswith("/") and "creativecommons.org" in url:
+        url += "/"
+    allowed = LICENSES.get(name, set())
+    return url if url in allowed else LICENSE_URLS.get(name, url)
+
+
+def is_mirrored(item):
+    return str(item.get("file", "")).startswith(MIRROR_URL)
+
+
+def source_of(item):
+    """The name of the Source that made a catalogue item: 'mirror' for our own files, else from the id prefix."""
+    if is_mirrored(item):
+        return "mirror"
+    prefix = item["id"].split("-")[0]
+    return {"cma": "cleveland"}.get(prefix, prefix)
+
+
+def sniff(head):
+    """'image', 'video' or 'scene' from a file's first bytes, the same signatures the app checks."""
+    if head[:3] == b"\xff\xd8\xff" or head[:8] == b"\x89PNG\r\n\x1a\n" or (head[:4] == b"RIFF" and head[8:12] == b"WEBP"):
+        return "image"
+    if head[:4] == b"KUMO":
+        return "scene"
+    if head[4:8] == b"ftyp" or head[:4] == b"\x1a\x45\xdf\xa3":
+        return "video"
+    return None
+
+
+class Mirror(Source):
+    """The files we host ourselves, in the public repository Hamido212/kumo-wallpapers: freely
+    licensed desktop art (pictures/), animated loops (loops/) and 3D scenes (scenes/). Each folder
+    has an items.json written when its files were mirrored, with title, author, source, licence,
+    credit, the changes we made, pixel size, bytes, sha256 and the file and preview paths. This
+    source reads them from a local copy of the repository and points the catalogue at
+    MIRROR_URL. The records come from different tools, so field names are read tolerantly and a
+    missing items.json is skipped. Every mirror item carries bytes and sha256, which the app checks."""
+    name = "mirror"
+    folder = MIRROR_DIR
+    local = False  # True: check against the local files instead of asking GitHub
+    PARTS = [("pictures", "image", "desktop"), ("loops", "video", "loops"), ("scenes", "scene", "scenes")]
+
+    def candidates(self):
+        self.local_files = {}  # catalogue URL -> local path, for --mirror-local and the review sheet
+        for part, kind, category in self.PARTS:
+            path = self.folder / part / "items.json"
+            if not path.exists():
+                continue
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except ValueError:
+                print(f"mirror: {part}/items.json is not valid JSON, skipped")
+                continue
+            records = data.get("items", []) if isinstance(data, dict) else data
+            for record in records if isinstance(records, list) else []:
+                self.considered += 1
+                item = self.item(record, part, kind, category) if isinstance(record, dict) else self.drop("record is not an object")
+                if item:
+                    yield item
+
+    def relpath(self, value, part):
+        """A file's path inside the repository, from a path relative to the repository, to the
+        part's folder, or a full mirror URL. None if it is not a plain relative path."""
+        value = str(value or "").strip().replace("\\", "/")
+        if value.startswith(MIRROR_URL):
+            value = urllib.parse.unquote(value[len(MIRROR_URL):])
+        if value.startswith("./"):
+            value = value[2:]
+        if not value or value.startswith("/") or ".." in value.split("/") or not MIRROR_PATH.fullmatch(value):
+            return None
+        if not (self.folder / value).exists() and (self.folder / part / value).exists():
+            value = f"{part}/{value}"
+        return value
+
+    def item(self, rec, part, kind, category):
+        def get(*keys):
+            return next((rec[k] for k in keys if rec.get(k) not in (None, "")), "")
+
+        item_id = str(get("id"))
+        if not ID.fullmatch(item_id):
+            return self.drop("id must match [a-z0-9-]{1,64}")
+        kind = str(get("kind") or kind)
+        if kind not in KINDS:
+            return self.drop(f"unknown kind {kind}")
+        if rec.get("revoked") is True:
+            return self.drop("revoked in items.json")
+        title, author = clean(get("title")), clean(get("author", "creator", "artist"))
+        lic = license_name(get("license", "licence", "licenseName", "license_name"))
+        if lic not in LICENSES:
+            return self.drop(f"licence {lic or 'missing'} is not on the allow-list")
+        file = self.relpath(get("path", "file", "mirrorPath", "mirror_path"), part)
+        thumb = self.relpath(get("thumb", "preview", "previewPath", "preview_path", "thumbPath"), "thumbs/" + part)
+        if not file or not thumb:
+            return self.drop("no file or preview path inside the repository")
+        size, digest = get("bytes"), str(get("sha256")).lower()
+        if not isinstance(size, int) or isinstance(size, bool) or size <= 0 or not re.fullmatch(r"[0-9a-f]{64}", digest):
+            return self.drop("bytes or sha256 missing")
+        try:
+            width, height = int(get("width") or 0), int(get("height") or 0)
+        except (TypeError, ValueError):
+            return self.drop("width or height is not a number")
+        if kind != "scene" and fits_screen(width, height):
+            return self.drop(fits_screen(width, height))
+        if kind == "video" and str(get("codec")) not in CODECS:
+            return self.drop(f"video codec {get('codec') or 'missing'}")
+        if not title or not author or not get("sourceUrl", "source_url", "sourcePage", "source_page", "page"):
+            return self.drop("title, author or source page missing")
+        credit = clean(get("credit", "creditLine", "credit_line"))
+        changes = clean(get("changes"))
+        if changes and changes.rstrip(".").lower() not in credit.lower():
+            credit = f"{with_stop(credit)} {with_stop(changes)}" if credit else with_stop(changes)
+        category = str(get("category"))
+        if category not in {c["id"] for c in CATEGORIES}:
+            category = {"pictures": "desktop", "loops": "loops", "scenes": "scenes"}[part]
+        item = {
+            "id": item_id,
+            "title": title,
+            "author": author,
+            "kind": kind,
+            "category": category,
+            "source": clean(get("source", "sourceName", "source_name")),
+            "sourceUrl": str(get("sourceUrl", "source_url", "sourcePage", "source_page", "page")),
+            "license": lic,
+            "licenseUrl": license_url(lic, get("licenseUrl", "licenceUrl", "license_url", "licence_url")),
+            "credit": credit,
+            "thumb": MIRROR_URL + urllib.parse.quote(thumb),
+            "file": MIRROR_URL + urllib.parse.quote(file),
+            "bytes": size,
+            "width": width if kind != "scene" else 0, "height": height if kind != "scene" else 0,
+            "duration": float(get("duration") or 0) if kind == "video" else 0,
+            "codec": str(get("codec")) if kind == "video" else "",
+            "sha256": digest,
+            "_text": title,
+        }
+        self.local_files[item["file"]] = self.folder / file
+        self.local_files[item["thumb"]] = self.folder / thumb
+        return item
+
+    def verify_local(self, item):
+        """--mirror-local: the file and preview exist in the local copy, the file has exactly the
+        bytes and sha256 of its record and the type of its kind, and both are under their caps."""
+        file, thumb = self.local_files[item["file"]], self.local_files[item["thumb"]]
+        if not thumb.is_file():
+            return self.drop("preview: not in the local copy")
+        if thumb.stat().st_size > CAPS["thumb"] or sniff(thumb.read_bytes()[:16]) != "image":
+            return self.drop("preview: larger than 8 MB or not a picture")
+        if not file.is_file():
+            return self.drop("file: not in the local copy")
+        if file.stat().st_size != item["bytes"]:
+            return self.drop("file: size differs from items.json")
+        if item["bytes"] > CAPS[item["kind"]]:
+            return self.drop(f"file larger than the {CAPS[item['kind']] >> 20} MB cap")
+        data = file.read_bytes()
+        if hashlib.sha256(data).hexdigest() != item["sha256"]:
+            return self.drop("file: sha256 differs from items.json")
+        if sniff(data[:16]) != item["kind"]:
+            return self.drop(f"file: not a {item['kind']} by its first bytes")
+        return item
+
+
+SOURCES = [Svs, Cleveland, EsaHubble, EsaWebb, Eso, Mirror]
 # Not run by default. The Met's API works, but images.metmuseum.org answers automated requests with a
 # bot-protection web page instead of the picture (November 2026), and the app would get the same page.
 # Its host is also not on the app's list. It needs our own file mirror first; `--only met` still runs it.
@@ -1072,6 +1277,8 @@ def verify(net, source, item):
         return source.drop(f"file: content type {file['type']} for {item['kind']}")
     if file["bytes"] > CAPS[item["kind"]]:
         return source.drop(f"file larger than the {CAPS[item['kind']] >> 20} MB cap")
+    if item.get("bytes") and item["bytes"] != file["bytes"]:  # mirror items know their size
+        return source.drop("file: the server's size differs from items.json")
     item["bytes"] = file["bytes"]
     return item
 
@@ -1112,6 +1319,8 @@ def hash_files(net, items):
     store = CACHE / "hashes.json"
     known = json.loads(store.read_text(encoding="utf-8")) if store.exists() else {}
     for n, item in enumerate(items, 1):
+        if is_mirrored(item):  # our own files: bytes and sha256 come from items.json
+            continue
         if item["file"] not in known:
             print(f"  hashing {n}/{len(items)} {item['id']}", flush=True)
             data = download(net, item["file"])
@@ -1158,12 +1367,20 @@ def make_thumbs(net, items, folder):
 def build(args):
     net = Net(args.user_agent, args.refresh)
     removed, revoked = read_exclusions()
+    out = pathlib.Path(args.out) if args.out else OUT
     previous = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {"items": []}
     Cleveland.published = {i["id"] for i in previous["items"]}
-    kept, report = [], []
+    Mirror.folder, Mirror.local = pathlib.Path(args.mirror), args.mirror_local
+    kept, report, local_thumbs = [], [], {}
     for cls in SOURCES + [s for s in DISABLED if s.name == args.only]:
         if args.only and cls.name != args.only:
-            kept += [i for i in previous["items"] if i["id"].split("-")[0] == {"cleveland": "cma"}.get(cls.name, cls.name)]
+            kept += [i for i in previous["items"] if source_of(i) == cls.name]
+            continue
+        if cls is Mirror and not Mirror.folder.is_dir():
+            # no local copy of the mirror on this machine: keep what the last build listed
+            old = [i for i in previous["items"] if source_of(i) == "mirror"]
+            print(f"mirror: {Mirror.folder} not found, keeping the {len(old)} mirror items of the last build")
+            kept += old
             continue
         source = cls(net, args.hash)
         count = 0
@@ -1182,7 +1399,10 @@ def build(args):
             if any(i["id"] == item["id"] for i in kept):
                 source.drop("duplicate id")
                 continue
-            if verify(net, source, item):
+            local = isinstance(source, Mirror) and source.local
+            if source.verify_local(item) if local else verify(net, source, item):
+                if local:
+                    local_thumbs[item["thumb"]] = source.local_files[item["thumb"]]
                 item.setdefault("sha256", "")
                 item.setdefault("revoked", False)
                 kept.append({k: item[k] for k in ITEM_FIELDS})
@@ -1196,13 +1416,13 @@ def build(args):
     if args.hash:
         hash_files(net, [i for i in kept if not i["revoked"]])
         for item in list(kept):  # pixel sizes read from the files themselves get the same test
-            why = fits_screen(item["width"], item["height"])
+            why = fits_screen(item["width"], item["height"]) if item["kind"] != "scene" else None
             if why and not item["revoked"]:
                 kept.remove(item)
                 for name, considered, count, dropped in report:
-                    if item["id"].startswith({"cleveland": "cma"}.get(name, name) + "-"):
+                    if source_of(item) == name:
                         dropped[why] += 1
-        report = [(n, c, sum(i["id"].startswith({"cleveland": "cma"}.get(n, n) + "-") for i in kept), d) for n, c, _, d in report]
+        report = [(n, c, sum(source_of(i) == n for i in kept), d) for n, c, _, d in report]
     if args.thumbs:
         make_thumbs(net, [i for i in kept if not i["revoked"]], args.thumbs)
 
@@ -1212,9 +1432,9 @@ def build(args):
     if catalog["items"] != previous.get("items") or not catalog["updated"]:
         catalog["updated"] = datetime.date.today().isoformat()
     text = json.dumps(catalog, ensure_ascii=False, indent=1) + "\n"
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(text, encoding="utf-8", newline="\n")
-    write_review(catalog)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(text, encoding="utf-8", newline="\n")
+    write_review(catalog, local_thumbs)
 
     print()
     for name, considered, count, dropped in report:
@@ -1224,7 +1444,7 @@ def build(args):
     by_category = Counter(i["category"] for i in kept if not i["revoked"])
     print("\nper category: " + ", ".join(f"{c['id']} {by_category[c['id']]}" for c in CATEGORIES))
     print("hosts: " + ", ".join(sorted({urllib.parse.urlsplit(i[k]).hostname for i in kept for k in ("thumb", "file")})))
-    print(f"{len(kept)} items, {len(text.encode()) // 1024} KB, {net.requests} requests -> {OUT.relative_to(ROOT)}")
+    print(f"{len(kept)} items, {len(text.encode()) // 1024} KB, {net.requests} requests -> {out.resolve()}")
     print(f"contact sheet: {REVIEW.relative_to(ROOT)}")
     problems = check_catalog(catalog)
     for p in problems:
@@ -1232,13 +1452,16 @@ def build(args):
     return 1 if problems else 0
 
 
-def write_review(catalog):
-    """A local contact sheet for a human pass: remote previews, title, credit and id."""
+def write_review(catalog, local_thumbs=None):
+    """A local contact sheet for a human pass: previews (from the source, or from the local copy of
+    the mirror for files that are not published yet), title, credit and id."""
     cards = []
     for i in catalog["items"]:
+        thumb = (local_thumbs or {}).get(i["thumb"])
+        src = thumb.resolve().as_uri() if thumb else i["thumb"]
         cards.append(
             f'<figure{" class=revoked" if i["revoked"] else ""}><a href="{html.escape(i["sourceUrl"])}">'
-            f'<img loading="lazy" src="{html.escape(i["thumb"])}" alt=""></a><figcaption><b>{html.escape(i["title"])}</b>'
+            f'<img loading="lazy" src="{html.escape(src)}" alt=""></a><figcaption><b>{html.escape(i["title"])}</b>'
             f'<span>{html.escape(i["credit"])}</span><code>{i["id"]} · {i["category"]} · {i["kind"]} · '
             f'{i["width"]}x{i["height"]} · {i["bytes"] / 1e6:.1f} MB{" · " + i["codec"] if i["codec"] else ""}</code></figcaption></figure>')
     REVIEW.parent.mkdir(parents=True, exist_ok=True)
@@ -1276,8 +1499,8 @@ def check_catalog(catalog):
         for key in ("title", "author", "source", "sourceUrl", "license", "licenseUrl", "credit", "thumb", "file"):
             if not isinstance(item.get(key), str) or not item[key].strip():
                 problems.append(f"{where}: {key} missing")
-        if item.get("kind") not in ("image", "video"):
-            problems.append(f"{where}: kind must be image or video")
+        if item.get("kind") not in KINDS:
+            problems.append(f"{where}: kind must be image, video or scene")
         if item.get("category") not in categories:
             problems.append(f"{where}: unknown category {item.get('category')}")
         if item.get("license") not in LICENSES:
@@ -1288,26 +1511,54 @@ def check_catalog(catalog):
             if not str(item.get(key, "")).startswith("https://"):
                 problems.append(f"{where}: {key} must be https")
         for key in ("thumb", "file"):
-            host = urllib.parse.urlsplit(str(item.get(key, ""))).hostname
+            url = str(item.get(key, ""))
+            host = urllib.parse.urlsplit(url).hostname
             if host not in ALLOWED_HOSTS:
                 problems.append(f"{where}: {key} host {host} is not on the app's list")
+            elif host == "raw.githubusercontent.com" and not url.startswith(MIRROR_URL):
+                problems.append(f"{where}: {key} is on GitHub but not in our mirror ({MIRROR_URL})")
         for key in ("bytes", "width", "height", "duration"):
             if not isinstance(item.get(key), (int, float)) or isinstance(item.get(key), bool) or item[key] < 0:
                 problems.append(f"{where}: {key} must be a number")
         if not item.get("bytes") or item.get("bytes", 0) > CAPS.get(item.get("kind"), 0):
             problems.append(f"{where}: bytes missing or above the cap for {item.get('kind')}")
-        if not item.get("width") or not item.get("height"):
+        if item.get("kind") == "scene":
+            if item.get("width") or item.get("height"):
+                problems.append(f"{where}: scenes have no pixel size (width and height 0)")
+        elif not item.get("width") or not item.get("height"):
             problems.append(f"{where}: width and height missing")
-        if isinstance(item.get("width"), int) and isinstance(item.get("height"), int) and                 item["width"] * item["height"] > MAX_PIXELS:
+        if item.get("kind") == "image" and isinstance(item.get("width"), int) and isinstance(item.get("height"), int) \
+                and item["width"] * item["height"] > MAX_PIXELS:
             problems.append(f"{where}: more than {MAX_PIXELS // 1_000_000} megapixels")
         if item.get("kind") == "video" and item.get("codec") not in CODECS:
             problems.append(f"{where}: codec must be one of {sorted(CODECS)}")
-        if item.get("kind") == "image" and item.get("codec"):
-            problems.append(f"{where}: images have no codec")
+        if item.get("kind") in ("image", "scene") and item.get("codec"):
+            problems.append(f"{where}: only videos have a codec")
         if not re.fullmatch(r"([0-9a-f]{64})?", str(item.get("sha256", ""))):
             problems.append(f"{where}: sha256 must be empty or 64 hex digits")
+        elif is_mirrored(item) and not item.get("sha256"):
+            problems.append(f"{where}: mirror items need their sha256")
         if not isinstance(item.get("revoked"), bool):
             problems.append(f"{where}: revoked must be true or false")
+    return problems
+
+
+def check_mirror_files(catalog, folder):
+    """check --mirror-local: every live mirror item's file and preview are in the local copy of the
+    mirror, and the file has exactly the item's bytes and sha256."""
+    problems = []
+    for item in catalog.get("items", []):
+        if item.get("revoked") or not is_mirrored(item):
+            continue
+        where = f"item {item.get('id')}"
+        for key in ("thumb", "file"):
+            local = folder / urllib.parse.unquote(str(item[key])[len(MIRROR_URL):])
+            if not local.is_file():
+                problems.append(f"{where}: {key} is not in {folder}")
+            elif key == "file":
+                data = local.read_bytes()
+                if len(data) != item.get("bytes") or hashlib.sha256(data).hexdigest() != item.get("sha256"):
+                    problems.append(f"{where}: the local file's size or sha256 differs from the catalogue")
     return problems
 
 
@@ -1319,6 +1570,8 @@ def check(args):
         print(f"ERROR cannot read {path}: {e}")
         return 1
     problems = check_catalog(catalog)
+    if args.mirror_local:
+        problems += check_mirror_files(catalog, pathlib.Path(args.mirror))
     for p in problems:
         print("ERROR " + p)
     items = catalog.get("items", [])
@@ -1336,8 +1589,15 @@ def main():
     b.add_argument("--only", choices=[s.name for s in SOURCES + DISABLED], help="run one source, keep the others from the last build")
     b.add_argument("--hash", action="store_true", help="download each file once to fill in sha256")
     b.add_argument("--thumbs", metavar="DIR", help="download previews and write DIR/<id>.jpg at 480x270")
+    b.add_argument("--mirror", metavar="DIR", default=str(MIRROR_DIR),
+                   help="local copy of the kumo-wallpapers repository (default: ../kumo-wallpapers)")
+    b.add_argument("--mirror-local", action="store_true",
+                   help="check mirror items against the local files (size, sha256) instead of asking GitHub")
+    b.add_argument("--out", metavar="FILE", help="write the catalogue there (default: site/catalog/v1/catalog.json)")
     c = sub.add_parser("check", help="validate a catalogue file offline")
     c.add_argument("file", nargs="?", help="default: site/catalog/v1/catalog.json")
+    c.add_argument("--mirror", metavar="DIR", default=str(MIRROR_DIR), help="local copy of the mirror (default: ../kumo-wallpapers)")
+    c.add_argument("--mirror-local", action="store_true", help="also compare mirror items with the files in the local copy")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     sys.exit(build(args) if args.command == "build" else check(args))

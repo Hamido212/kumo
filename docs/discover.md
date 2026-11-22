@@ -7,14 +7,19 @@ look after the catalogue.
 ## How it works
 
 * The catalogue is one static file, `site/catalog/v1/catalog.json`, deployed with the website as
-  `https://kumo.hyos.tech/catalog/v1/catalog.json`. We host only this index.
+  `https://kumo.hyos.tech/catalog/v1/catalog.json`. We host this index, and a mirror of freely
+  licensed desktop art in a public GitHub repository (see [Our own mirror](#our-own-mirror)).
 * Nothing is fetched before you open Discover and agree. Then Kumo loads the index, shows the
   previews, and on a click downloads the file **directly from the source's own server** (NASA, a
-  museum, ESA, ESO) into the local library, the same as a file you drag in.
+  museum, ESA, ESO), or for mirrored files from GitHub, into the local library, the same as a file
+  you drag in.
 * Kumo downloads over https only, and only from a fixed list of hosts built into the app:
   `kumo.hyos.tech`, `cdn.kumo.hyos.tech`, `svs.gsfc.nasa.gov`, `openaccess-cdn.clevelandart.org`,
-  `cdn.esahubble.org`, `cdn.esawebb.org`, `cdn.eso.org`. The tool checks against the same list
-  (`ALLOWED_HOSTS`). A URL on any other host, after redirects too, is refused. Size caps: preview 8 MB, picture 80 MB, video 500 MB.
+  `cdn.esahubble.org`, `cdn.esawebb.org`, `cdn.eso.org`, `raw.githubusercontent.com`. The tool
+  checks against the same list (`ALLOWED_HOSTS`), and on `raw.githubusercontent.com` accepts only
+  files of our mirror repository. A URL on any other host, after redirects too, is refused. Kumo
+  1.1.0 does not know the GitHub host yet and skips mirrored items; later versions show them.
+  Size caps: preview 8 MB, picture 80 MB, video 500 MB, 3D scene 50 MB.
 * Each wallpaper shows its title, author, source and licence, with links to the work's page and
   the licence text, in the app and in the library afterwards.
 * The website answers with `Cache-Control: public, max-age=300, must-revalidate`
@@ -49,13 +54,13 @@ look after the catalogue.
 
 | Field | Meaning |
 |---|---|
-| `id` | `[a-z0-9-]{1,64}`, unique and stable: source prefix plus the source's own number (`svs-`, `cma-`, `esahubble-`, `esawebb-`, `eso-`; `met-` and `smk-` for the sources that are switched off) |
-| `kind` | `image` or `video` (the app also knows `scene`, see [3D scenes](#3d-scenes) below) |
-| `category` | one of the `categories` ids: `space`, `nightsky`, `earth`, `japan`, `landscape` |
-| `thumb`, `file` | https URLs on the app's host list, checked with a HEAD request at build time |
-| `bytes`, `width`, `height` | from the server's `Content-Length`; the pixel size from the source's data or from the JPEG's own header (see below) |
+| `id` | `[a-z0-9-]{1,64}`, unique and stable: source prefix plus the source's own number (`svs-`, `cma-`, `esahubble-`, `esawebb-`, `eso-`; `met-` and `smk-` for the sources that are switched off; mirrored pictures: `kde-`, `popos-`, `cosmic-`, `fedora-`, `ubuntu-` plus a name) |
+| `kind` | `image`, `video` or `scene` (see [3D scenes](#3d-scenes) below) |
+| `category` | one of the `categories` ids: `space`, `nightsky`, `earth`, `japan`, `landscape`, `desktop`, `photo`, `loops`, `scenes` |
+| `thumb`, `file` | https URLs on the app's host list, checked with a HEAD request at build time (mirror items: against the local copy with `--mirror-local` until they are published) |
+| `bytes`, `width`, `height` | from the server's `Content-Length` (mirror items: from `items.json`); the pixel size from the source's data or from the JPEG's own header (see below); 0 for scenes |
 | `duration`, `codec` | videos only: seconds (0 until a `--hash` run measures it) and `h264`, `hevc`, `vp9` or `av1` |
-| `sha256` | empty, or the file's hash after a `--hash` run; the app checks it when present |
+| `sha256` | empty, or the file's hash after a `--hash` run; always filled in for mirror items; the app checks it when present |
 | `revoked` | `true` keeps the id known after a takedown, so apps can remove downloaded copies |
 
 The app ignores fields it does not know, so new fields can be added without a new version. A
@@ -63,14 +68,30 @@ change that old apps would misread gets a new path (`/catalog/v2/`), and `v1` st
 
 ## What gets in, and why
 
-**Licences: public domain, CC0 1.0 and CC BY 4.0 only.** Nothing with NonCommercial (NC) or
-NoDerivatives (ND), and no CC BY-SA in this first version. The reasons:
+**Licences: public domain, CC0 1.0, CC BY 4.0, CC BY-SA 4.0, and MIT (or another permissive
+software licence) where the artwork's own author applied it.** Nothing with NonCommercial (NC) or
+NoDerivatives (ND), no Creative Commons licence older than 4.0, nothing "free for personal use",
+nothing without a clear licence. The reasons:
 
 * Kumo is under the GPL, which lets anyone redistribute it, including commercially. NonCommercial
   content would not travel with it.
 * The publisher is in Germany, so German and EU law apply, not just the licence a museum states.
 * It keeps a Microsoft Store listing possible: the Store asks that the publisher holds the rights to
   all content an app shows (policy 11.2).
+
+**Why CC BY-SA 4.0 and MIT artwork are accepted now, and CC 3.0 is not.** The first catalogue only
+linked to files on the sources' servers. Desktop art from open-source projects (KDE, Fedora, Pop!_OS,
+Ubuntu) mostly comes under CC BY-SA 4.0, and has no server that a wallpaper app could use, so we
+mirror it (see [Our own mirror](#our-own-mirror)). ShareAlike asks nothing of Kumo itself: the
+pictures are separate files that keep their licence, and the few changes we make (scaling down to
+3840 pixels, converting to JPEG, removing metadata) are named in the credit and stay under the same
+licence. Kumo is free and carries no advertising, which removes the last commercial question. MIT
+and similar licences count only when the artwork's author applied them; a repository licence that
+covers a project's code does not cover pictures its maintainers collected elsewhere. Licences 2.x
+and 3.0 end automatically at the first mistake in attribution, and in Germany rights holders have
+claimed damages for exactly such slips; version 4.0 gives 30 days to correct them (section 6(b)).
+So 3.0 works stay out even when the rest looks fine, and so do files whose licence statement does
+not name them exactly.
 
 **EU copyright term.** A work is only taken when its creator died more than 70 years ago, that is
 before 1956 in 2026, and the source's own data gives the death year. Unknown or later death year:
@@ -104,7 +125,10 @@ version with labels, dates or captions burnt in. HEVC needs a Windows extension,
 **Credit.** Every item carries a complete credit line with title, author, source and licence.
 For CC BY images the credit is the image's own line from its page (for example "NASA, ESA, CSA,
 STScI; J. DePasquale, A. Koekemoer, A. Pagan (STScI)" or "ESO/B. Tafreshi"), full and unaltered,
-as ESA and ESO ask, followed by "ESA/Hubble", "ESA/Webb" or "ESO" and "CC BY 4.0".
+as ESA and ESO ask, followed by "ESA/Hubble", "ESA/Webb" or "ESO" and "CC BY 4.0". Mirrored
+pictures name the author as the source names them, the source with a link, the licence, and what
+we changed ("Changes: resized from 5120x2880 to 3840x2160, converted from PNG to JPEG (quality
+88), metadata removed.").
 
 ## Sources
 

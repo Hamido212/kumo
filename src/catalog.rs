@@ -24,6 +24,10 @@ const HOSTS: &[&str] = &[
     "cdn.esahubble.org",
     "cdn.esawebb.org",
     "cdn.eso.org",
+    // our own file mirror, the public repository Hamido212/kumo-wallpapers on GitHub; the host
+    // serves every public repository, so the catalogue tool only lists files under our path, and
+    // every mirrored item carries its sha256
+    "raw.githubusercontent.com",
 ];
 
 pub const MAX_CATALOG: usize = 4 << 20;
@@ -774,6 +778,24 @@ mod tests {
         assert!(host_allowed("kumo.hyos.tech") && host_allowed("cdn.eso.org"));
         for h in ["KUMO.hyos.tech", "kumo.hyos.tech.", "evil.kumo.hyos.tech", "kumo.hyos.tech.evil.com", "xkumo.hyos.tech", "", "eso.org"] {
             assert!(!host_allowed(h), "{h}");
+        }
+    }
+
+    #[test]
+    fn the_mirror_on_github_is_allowed() {
+        let u = check_url("https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/pictures/kde/kde-altai.jpg").unwrap();
+        assert_eq!((u.https, u.host.as_str(), u.port), (true, "raw.githubusercontent.com", 443));
+        assert_eq!(u.path, "/Hamido212/kumo-wallpapers/main/pictures/kde/kde-altai.jpg");
+        // only that exact host, over https; GitHub's other hosts stay out
+        for bad in [
+            "http://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/a.jpg",
+            "https://raw.githubusercontent.com.evil.example/a.jpg",
+            "https://evil.raw.githubusercontent.com/a.jpg",
+            "https://github.com/Hamido212/kumo-wallpapers/raw/main/a.jpg",
+            "https://objects.githubusercontent.com/a.jpg",
+            "https://media.githubusercontent.com/media/Hamido212/kumo-wallpapers/main/a.jpg",
+        ] {
+            assert!(check_url(bad).is_err(), "{bad}");
         }
     }
 
