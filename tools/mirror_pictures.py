@@ -249,6 +249,13 @@ def build(args):
         print("not downloaded yet (run fetch): " + ", ".join(missing))
         return 1
     records.sort(key=lambda r: (r["source"], r["id"]))
+    # files of pictures that left the list (a takedown, a changed decision) go too
+    wanted = {r["path"] for r in records} | {r["thumb"] for r in records}
+    for folder in [mirror / "pictures" / s for s in sources] + [mirror / "thumbs" / "pictures"]:
+        for f in sorted(folder.glob("*.*")) if folder.is_dir() else []:
+            if f.relative_to(mirror).as_posix() not in wanted:
+                print(f"removed {f.relative_to(mirror).as_posix()} (not in the list any more)")
+                f.unlink()
     items = {"description": "Pictures mirrored for Kumo's Discover tab. Every file keeps the licence named here.",
              "base": MIRROR_URL, "items": records}
     (mirror / "pictures").mkdir(parents=True, exist_ok=True)
