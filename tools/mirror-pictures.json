@@ -1033,18 +1033,6 @@
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Milkyway_by_mizuno_as.png?h=ubuntu/stonking"
   },
   {
-   "id": "ubuntu-minotaur-papercut-by-sbutcher",
-   "source": "ubuntu",
-   "title": "Minotaur Papercut",
-   "author": "sbutcher",
-   "category": "desktop",
-   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Minotaur_papercut_by_sbutcher.png?h=ubuntu/stonking",
-   "license": "CC BY-SA 4.0",
-   "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
-   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
-   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Minotaur_papercut_by_sbutcher.png?h=ubuntu/stonking"
-  },
-  {
    "id": "ubuntu-mirror-by-uday-nakade",
    "source": "ubuntu",
    "title": "Mirror",
