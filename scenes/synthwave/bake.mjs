@@ -50,8 +50,6 @@ function strip(x0, x1, za, zb, y, ca, cb, glow = true) {
   const [z0, z1, c0, c1] = za < zb ? [za, zb, ca, cb] : [zb, za, cb, ca];
   ground.poly([[x0, y, z0], [x0, y, z1], [x1, y, z1], [x1, y, z0]], [c0, c1, c1, c0], { glow });
 }
-// a dark sheet under everything, so no seam between the strips can show the sky
-ground.flat(-900, -900, 900, 60, -0.6, 0x05030a);
 ground.flat(-900, FAR, -ROAD, 60, 0, BASE);
 ground.flat(ROAD, FAR, 900, 60, 0, BASE);
 ground.flat(-ROAD, FAR, ROAD, 60, 0, ROAD_C);
@@ -102,7 +100,13 @@ for (let z = 30; z > -430; z -= 9) {
   const len = 3.2 + dist(z) * 0.006, w = 0.16 + dist(z) * 0.0012;
   ground.flat(-w, z - len, w, z, 0.05, mixHex(BASE, DASH, fadeFar(z)), { glow: true });
 }
-s.object({ mesh: s.addMesh('ground', ground.build()), cast: false, receive: true });
+// a dark sheet under everything, so no seam between the strips can show the sky (last, so the
+// strips above hide it before it is shaded)
+ground.flat(-900, -900, 900, 60, -0.6, 0x05030a);
+// Objects are drawn in the order they are listed. Listing the near ones first lets the GPU skip
+// what they hide: the car, the palms, the ground, the ridges from near to far, then the sun.
+const near = [], ridgeObjects = [], sunObjects = [];
+const groundObject = { mesh: s.addMesh('ground', ground.build()), cast: false, receive: true };
 
 // ---------------------------------------------------------------- mountains: flat ridges, one behind the other
 
@@ -134,7 +138,7 @@ function mountains(name, { z, pts, body, foot, rim, rimWidth }) {
     g.poly([[xa, ya - rimWidth, z + 0.4], [xb, yb - rimWidth, z + 0.4], [xb, yb + 0.15, z + 0.4], [xa, ya + 0.15, z + 0.4]], rim, { glow: true, normal: n });
   }
   ridges.push({ z, pts });
-  return s.object({ mesh: s.addMesh(name, g.build()), cast: false, receive: false });
+  ridgeObjects.unshift({ mesh: s.addMesh(name, g.build()), cast: false, receive: false });
 }
 
 const dip = (w, depth) => (x) => 1 - depth * Math.exp(-(x * x) / (w * w)); // the sun sits in the dip
@@ -171,7 +175,7 @@ const SUN_RAMP = [0xfff27a, 0xffd85a, 0xffb247, 0xff8e40, 0xff6c48, 0xff5060, 0x
     const t = 1 - ((y0 + y1) / 2 - bottom) / (top - bottom); // 0 at the top
     const f = t * (SUN_RAMP.length - 1), i = Math.floor(f);
     const c = mixHex(SUN_RAMP[i], SUN_RAMP[Math.min(SUN_RAMP.length - 1, i + 1)], f - i);
-    s.object({ mesh: s.addMesh('sun', g.build()), cast: false, receive: false, emissive: lin(c).map((v) => Math.round(v * 1.35 * 1e4) / 1e4) });
+    sunObjects.push({ mesh: s.addMesh('sun', g.build()), cast: false, receive: false, emissive: lin(c).map((v) => Math.round(v * 1.35 * 1e4) / 1e4) });
   }
 }
 
@@ -249,7 +253,7 @@ for (const z of [-34, -62, -96, -140, -196, -268]) {
 }
 palm(palms, [-31, 0, -16], 21, seed++); // two big ones that frame the view
 palm(palms, [29, 0, -23], 20, seed++);
-s.object({ mesh: s.addMesh('palms', palms.build()), cast: false, receive: true });
+near.push({ mesh: s.addMesh('palms', palms.build()), cast: false, receive: true });
 
 // ---------------------------------------------------------------- the car (an original wedge, no real model)
 
@@ -287,7 +291,7 @@ function car() {
 }
 const CAR = { x: 2.8, z: -46, scale: 0.19 };
 const carGrid = car();
-s.object({ mesh: s.addGrid('car', carGrid, { scale: CAR.scale, offset: [CAR.x - carGrid.sx * CAR.scale / 2, 0, CAR.z - carGrid.sz * CAR.scale] }), cast: true, receive: true });
+near.unshift({ mesh: s.addGrid('car', carGrid, { scale: CAR.scale, offset: [CAR.x - carGrid.sx * CAR.scale / 2, 0, CAR.z - carGrid.sz * CAR.scale] }), cast: true, receive: true });
 const tail = [CAR.x, 4 * CAR.scale, CAR.z + 0.15];
 for (const dx of [-1.4, 1.4]) s.glow([tail[0] + dx, tail[1], tail[2]], 1.8, 0xff2a55, 0.9);
 s.glow(tail, 7, 0xff2a55, 0.35);
@@ -317,7 +321,7 @@ for (let i = 0; i < 8; i++) {
 // ---------------------------------------------------------------- light
 
 // a soft bloom around the sun, behind it so the stripes stay sharp
-s.glow([0, SUN.y + SUN.r * 0.45, SUN.z - 30], SUN.r * 4.4, 0xff5a8a, 0.55);
+s.glow([0, SUN.y + SUN.r * 0.45, SUN.z - 30], SUN.r * 3.6, 0xff5a8a, 0.6);
 // red beacons on two far peaks, blinking slowly
 const peak = (pts, near) => pts.reduce((b, p) => (Math.abs(p[0] - near) < 90 && p[1] > b[1] ? p : b), [near, 0]);
 const far = ridges[0];
@@ -353,6 +357,8 @@ m.shadow = { size: 2048, extent: 24, near: 10, far: 420, target: [CAR.x, 1, CAR.
 m.credits = [
   { title: 'Neon Horizon (scene, all geometry)', author: 'Kumo', source: 'https://github.com/Hamido212/kumo/tree/main/scenes/synthwave', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' },
 ];
+
+for (const o of [...near, groundObject, ...ridgeObjects, ...sunObjects]) s.object(o);
 
 mkdirSync(dirname(out), { recursive: true });
 s.write(out);

@@ -86,21 +86,24 @@ const SCALE = 0.25;
 const world = new Grid(150, 110, 150, 75, 46, 75);
 const n3 = (x, y, z, sd) => (noise2(x, y, sd) + noise2(y + 7.1, z, sd + 1) + noise2(z - 3.3, x, sd + 2)) / 3;
 const ROCK = [0x6e6862, 0x5e5954, 0x7a736b, 0x55504c];
-// the rock: a lumpy, flattened blob with its top cut level for the base
-for (let y = -44; y <= 0; y++) for (let z = -62; z <= 62; z++) for (let x = -62; x <= 62; x++) {
-  const d = Math.hypot(x / 56, (y + 6) / 40, z / 52);
-  const n = n3(x / 14, y / 14, z / 14, 5) - 0.5;
-  if (d + n * 0.55 > 1) continue;
-  const crater = noise2(x / 9 + 40, z / 9 - 13, 9) > 0.72 && y === 0;
-  const shade = ROCK[Math.floor(n3(x / 5, y / 5, z / 5, 17) * 4) % 4];
-  world.set(x, y, z, crater ? 0x46423e : shade);
+// the rock: a lumpy, flattened blob with its top cut level for the base. It is built from voxels
+// twice the station's size (its lumpy surface would otherwise cost most of the scene's
+// vertices); coarse cell (cx, cy, cz) covers the station's voxels 2cx..2cx+1, 2cy+1..2cy+2.
+const blob = (x, y, z) => y <= 0 && Math.hypot(x / 56, (y + 6) / 40, z / 52) + (n3(x / 14, y / 14, z / 14, 5) - 0.5) * 0.55 <= 1;
+const rockCell = (cx, cy, cz) => blob(2 * cx + 1, 2 * cy + 2, 2 * cz + 1);
+const inRock = (x, y, z) => rockCell(Math.floor(x / 2), Math.floor((y - 1) / 2), Math.floor(z / 2));
+const rockGrid = new Grid(66, 25, 66, 33, 24, 33);
+for (let cy = -23; cy <= -1; cy++) for (let cz = -32; cz <= 31; cz++) for (let cx = -32; cx <= 31; cx++) {
+  if (!rockCell(cx, cy, cz)) continue;
+  const crater = noise2(cx / 4.5 + 40, cz / 4.5 - 13, 9) > 0.72 && cy === -1;
+  rockGrid.set(cx, cy, cz, crater ? 0x46423e : ROCK[Math.floor(n3(cx / 5.5, cy / 5.5, cz / 5.5, 17) * 4) % 4]);
 }
 // glowing crystals in clefts of the rock
 const crystals = [];
 for (let k = 0; k < 9; k++) {
   const a = rand() * Math.PI * 2, y0 = -8 - Math.floor(rand() * 26);
   let x = Math.round(Math.cos(a) * 70), z = Math.round(Math.sin(a) * 70);
-  while ((x || z) && !world.get(x, y0, z)) { x -= Math.sign(x); z -= Math.sign(z); }
+  while ((x || z) && !inRock(x, y0, z)) { x -= Math.sign(x); z -= Math.sign(z); }
   const c = pick([0x30e0c8, 0x40c0ff, 0x9a70ff]);
   for (let i = 0; i < 4 + Math.floor(rand() * 3); i++) world.set(x + Math.sign(x) * i, y0 + Math.floor(i / 2), z + Math.sign(z) * Math.floor(i * 0.6), c, 0, KIND_GLOW);
   crystals.push({ p: [x + Math.sign(x) * 2, y0 + 1, z + Math.sign(z)], c });
@@ -173,6 +176,7 @@ for (let z = -6; z <= 6; z++) for (let x = -3; x <= 3; x++) for (let y = 0; y <=
 for (const x of [-2, 2]) world.set(PAD.x + x, 4, PAD.z - 7, 0x60c0ff, 0, KIND_GLOW);
 
 s.object({ mesh: s.addGrid('station', world, { scale: SCALE }), cast: true, receive: true });
+s.object({ mesh: s.addGrid('rock', rockGrid, { scale: SCALE * 2, offset: [0, SCALE, 0] }), cast: true, receive: true });
 
 // ---------------------------------------------------------------- things that circle the station
 

@@ -1,10 +1,10 @@
-// Bakes "Neon Alley": a block of a rainy future city on a floating slab. Four alleys meet on a
+// Bakes "Neon District": a block of a rainy future city on a floating slab. Four alleys meet on a
 // small square with a sign pillar; low houses crowd round it, stepped towers stand at the corners.
 // Signs with made-up glyphs, billboards and strings of lamps glow over wet streets, passenger
 // drones circle the roofs. By day it is an overcast, grey city with its signs still on; at night
 // the neon takes over.
 //
-//   node scenes/alley/bake.mjs [out.kumo]              default: scenes/out/neon-alley.kumo
+//   node scenes/district/bake.mjs [out.kumo]           default: scenes/out/neon-district.kumo
 //
 // Everything is generated here; no third-party models. The signs show shapes, not writing.
 
@@ -16,7 +16,7 @@ import { SceneWriter, lin, skyKeys, v3 } from '../lib/kumo.mjs';
 import { noise2, rockBase, rockSides, roundedSquare } from '../lib/parts.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const out = process.argv[2] || join(here, '..', 'out', 'neon-alley.kumo');
+const out = process.argv[2] || join(here, '..', 'out', 'neon-district.kumo');
 const rand = mulberry32(2077);
 const pick = (list, r = rand) => list[Math.floor(r() * list.length)];
 const stage = (name) => { if (process.env.KUMO_STAGES) console.log(`  after ${name}: ${meshGrid(world).pos.length / 3} vertices`); };
@@ -249,7 +249,7 @@ SIDES.forEach(([sx, sz], side) => {
       const lo = half < 0 ? [-a1, -a0] : [a0, a1];
       const box = sx ? { x0: sx > 0 ? n0 : -n1, x1: sx > 0 ? n1 : -n0, z0: lo[0], z1: lo[1] } : { x0: lo[0], x1: lo[1], z0: sz > 0 ? n0 : -n1, z1: sz > 0 ? n1 : -n0 };
       const tiers = row.h[(side + (half > 0 ? 1 : 0) * 2) % 4].map((h) => h + Math.floor(rand() * 3) * 4);
-      BUILDINGS.push({ ...box, tiers, body: BODIES[BUILDINGS.length % BODIES.length], lit: 0.32, pitch: 6 });
+      BUILDINGS.push({ ...box, tiers, body: BODIES[BUILDINGS.length % BODIES.length], lit: 0.3, pitch: 7 });
     }
   });
 });
@@ -259,7 +259,7 @@ const TOWERS = [
   { x0: -84, x1: -34, z0: -84, z1: -34, tiers: [52, 40, 30], edge: NEON.violet, mast: 16 },
   { x0: 34, x1: 84, z0: -84, z1: -34, tiers: [46, 40], edge: NEON.amber },
 ];
-for (const t of TOWERS) BUILDINGS.push({ ...t, body: pick([0x6a7486, 0x727a8c, 0x6e6a7e]), lit: 0.36, pitch: 5, inset: 7, corners: true });
+for (const t of TOWERS) BUILDINGS.push({ ...t, body: pick([0x6a7486, 0x727a8c, 0x6e6a7e]), lit: 0.34, pitch: 6, inset: 7, corners: true });
 BUILDINGS.forEach((b, i) => { b.seed = 300 + i * 7; building(b); });
 stage('buildings');
 
@@ -333,7 +333,7 @@ stage('street');
 
 // ---------------------------------------------------------------- scene
 
-const s = new SceneWriter({ title: 'Neon Alley' });
+const s = new SceneWriter({ title: 'Neon District' });
 const m = s.manifest;
 s.object({ mesh: s.addGrid('city', world, { scale: SCALE }), cast: true, receive: true });
 const rock = rockBase({ inside, half: HALF, cell: 6, depth: 13, seed: 41, soil: 0x2a2c31, stone: [0x3a3c44, 0x34363e, 0x2e3038, 0x40424a] });
@@ -396,7 +396,7 @@ for (let i = 0; i < 24; i++) {
  */
 function islands() {
   const S = 0.8, H = 22;
-  const meshes = [0, 1].map((v) => {
+  const meshes = [0].map((v) => {
     const r = mulberry32(900 + v);
     const g = new Grid(H * 2 + 4, 64, H * 2 + 4, H + 2, 3, H + 2);
     const ins = roundedSquare(H, 7, 30 + v, 1.5);
@@ -419,7 +419,7 @@ function islands() {
   for (let i = 0; i < 5; i++) {
     const sc = 0.8 + rand() * 0.45;
     s.object({
-      mesh: meshes[i % 2], cast: false, receive: false, scale: v3([sc, sc, sc]), rotY: Math.round(rand() * 6.28 * 1e4) / 1e4,
+      mesh: meshes[0], cast: false, receive: false, scale: v3([sc, sc, sc]), rotY: Math.round(rand() * 6.28 * 1e4) / 1e4,
       orbit: { angle: (i / 5) * Math.PI * 2 + rand() * 0.5, radius: 200 + rand() * 70, y: -95 + rand() * 50, speed: 0.004 + rand() * 0.002, wobble: 2 },
     });
   }
@@ -459,7 +459,7 @@ m.camera = { target: [0, 10, 0], fov: 30, near: 1, far: 2000, angle: 0.7, elev: 
 m.shadow = { size: 2048, extent: 46, near: 10, far: 400, target: [0, 10, 0], distance: 190, bias: -0.0004, normalBias: 0.05 };
 
 m.credits = [
-  { title: 'Neon Alley (scene, all geometry)', author: 'Kumo', source: 'https://github.com/Hamido212/kumo/tree/main/scenes/alley', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' },
+  { title: 'Neon District (scene, all geometry)', author: 'Kumo', source: 'https://github.com/Hamido212/kumo/tree/main/scenes/district', license: 'CC BY 4.0', licenseUrl: 'https://creativecommons.org/licenses/by/4.0/' },
 ];
 
 mkdirSync(dirname(out), { recursive: true });
