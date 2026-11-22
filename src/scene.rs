@@ -320,6 +320,22 @@ mod tests {
         assert!(broken(|j| j["shadow"]["size"] = 0.into()).is_err());
     }
 
+    /// The scenes baked by the tools in `scenes/` (see scenes/README.md), if they have been baked.
+    #[test]
+    fn baked_scenes_load() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("scenes/out");
+        let Ok(entries) = std::fs::read_dir(dir) else { return };
+        for path in entries.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "kumo")) {
+            let bytes = std::fs::read(&path).unwrap();
+            let s = parse(&bytes).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            let m = &s.manifest;
+            assert!(m.lights.len() <= 4, "{}: more than four point lights", path.display());
+            // spray, fireflies and halos share one buffer of 1024 sprites
+            assert!(160 + m.fireflies.items.len() + m.glows.len() <= 1024, "{}: too many sprites", path.display());
+            assert!(bytes.len() <= 50 << 20, "{}: larger than the catalogue allows", path.display());
+        }
+    }
+
     #[test]
     fn rejects_other_files() {
         assert!(parse(b"not a scene").is_err());

@@ -3,7 +3,8 @@
 Kumo (雲, "cloud") shows animated 3D scenes, videos and pictures behind your desktop icons, with
 no browser and no .NET, in a single 19 MB program. It comes with a floating voxel island: a
 five-storey pagoda, falling cherry blossoms, a koi pond, a waterfall and a real day and night
-that follow your clock.
+that follow your clock. Three more scenes are built in: a city block, an autumn village and a
+snowy square.
 
 ![Voxel Pagoda Garden](docs/preview.png)
 
@@ -139,6 +140,17 @@ npm install
 npm run bake                   # assets\pagoda.kumo, then rebuild the exe
 ```
 
+More scenes are built from MagicaVoxel models with the tools in `scenes/lib`, which need Node
+and nothing else. [scenes/README.md](scenes/README.md) explains the importer and how to write a
+scene:
+
+```powershell
+node scenes/fetch-models.mjs   # once: the models, see scenes/models.json for authors and licences
+node scenes/metro/bake.mjs     # scenes\out\metro-block.kumo, also village and winter
+node scenes/pack.mjs           # packs them into assets\scenes, then rebuild the exe
+node scenes/vox2kumo.mjs out.kumo model.vox   # any MagicaVoxel model as a scene
+```
+
 ## Project layout
 
 ```
@@ -146,7 +158,8 @@ src/
   main.rs       entry point and modes (engine, --panel, --setup, --shot), window messages
   engine.rs     windows per screen, players per wallpaper, frame loop, pause rules
   video.rs      hardware video through Media Foundation and the GPU's video processor
-  library.rs    wallpaper library, import and remove
+  library.rs    wallpaper library, built-in scenes, import and remove
+  inflate.rs    unpacks the built-in scenes (they are stored compressed)
   media.rs      pictures via WIC, JPEG thumbnails
   panel.rs      control panel, setup wizard, uninstall window
   install.rs    self-install for the user, Start menu, Apps entry, uninstall
@@ -165,7 +178,9 @@ src/
 ui/             the Slint windows and the design tokens
 lang/           German translation
 scenes/pagoda/  scene generator (JavaScript) and bake script
-assets/         baked scene, icon, pictures, third-party notices
+scenes/lib/     MagicaVoxel importer, mesher and .kumo writer for further scenes
+scenes/metro/, village/, winter/   three scenes made with it (see scenes/README.md)
+assets/         baked scenes (assets/scenes holds the packed ones), icon, pictures, notices
 docs/design/    UI specification and mockup
 site/           the website (static files for Vercel, media rendered by tools/site_media.ps1)
 package/        the Microsoft Store package: manifest, logos, listing pictures (see docs/store.md)
@@ -178,13 +193,15 @@ tools/          generators for the notices, the website media, the Store package
 `"KUMO"`, version, a JSON manifest (camera, fog, shadow, sky keyframes, objects with optional
 bob/orbit animation, swimmers, water, waterfall, petals, fireflies, glow halos, point lights)
 and one binary blob with all vertices (`f32 x,y,z · i8 normal + flags · u8 sRGB colour + wind
-sway`) followed by `u32` indices. See `scenes/pagoda/bake.mjs` for the writer and `src/scene.rs`
-for the reader.
+sway`) followed by `u32` indices. See `scenes/pagoda/bake.mjs` and `scenes/lib/kumo.mjs` for the
+writers and `src/scene.rs` for the reader. The reader skips what it does not know, so a manifest
+can carry notes for people: `title`, and `credits` with author, source and licence of what a
+scene shows.
 
 ## Roadmap
 
 * Signed releases, so the Windows warning goes away
-* More scenes, and import from glTF (Blender) and MagicaVoxel
+* More scenes, scenes to download in Discover, and import from glTF (Blender)
 * Changing wallpapers on a timer, and rules for chosen apps
 * Update check, GIF playback, optional video sound
 
@@ -217,3 +234,9 @@ with [Slint](https://slint.dev), used under the GPL.
 The authors and licenses of all libraries in Kumo are in
 [assets/third-party-notices.txt](assets/third-party-notices.txt), which the program also shows
 under *About Kumo*. After changing dependencies, run `python tools/third_party.py`.
+
+The scenes in `scenes/metro`, `village` and `winter` contain models from
+[Mini Mike's Metro Minis](https://github.com/mikelovesrobots/mmmm) by Mike Judge, used under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) and converted, recoloured and arranged
+for Kumo. The models are not in this repository; `scenes/models.json` lists them. The three
+scenes ship inside Kumo, and each shows this credit on its page in the library.

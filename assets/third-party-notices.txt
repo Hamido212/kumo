@@ -253,6 +253,15 @@ zune-jpeg 0.5.15  |  MIT  |  caleb  |  https://github.com/etemesi254/zune-image/
 
 Slint is used under the GNU GPL v3, the same license as Kumo. See About Kumo, License.
 
+ARTWORK IN 3D SCENES
+
+The 3D scenes that are baked from this project's scenes folder and offered for download
+contain models by other authors, converted from MagicaVoxel files to meshes, recoloured in
+places and arranged into scenes. Each scene file names the models it uses.
+
+Mini Mike's Metro Minis  |  CC BY 4.0  |  Mike Judge  |  https://github.com/mikelovesrobots/mmmm
+  Additional Artwork by Mike Judge. License: https://creativecommons.org/licenses/by/4.0/
+
 LICENSES
 
 ==============================================================================

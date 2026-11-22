@@ -10,6 +10,8 @@ mod config;
 #[path = "../../src/env.rs"]
 #[allow(dead_code)]
 mod env;
+#[path = "../../src/inflate.rs"]
+mod inflate;
 #[path = "../../src/library.rs"]
 #[allow(dead_code)]
 mod library;

@@ -1,6 +1,7 @@
 """Writes assets/third-party-notices.txt: who wrote the crates inside kumo.exe and under which
-license. Their licenses ask for this text to ship with the program, and the panel opens it.
-Run it after changing dependencies:  python tools/third_party.py
+license, and whose models the downloadable 3D scenes contain. Their licenses ask for this text
+to ship with the program, and the panel opens it.
+Run it after changing dependencies or scenes/models.json:  python tools/third_party.py
 With --check it only tells whether the file is current (the automated build does this).
 With --mac it works on kumo-mac, the macOS version, instead.
 """
@@ -46,6 +47,19 @@ ICONS = """The icons of the control panel come from Fluent UI System Icons,
 Copyright (c) 2020 Microsoft Corporation, under the MIT license printed below.
 
 """
+
+
+def artwork():
+    """The model packs the 3D scenes in scenes/ are built from, as recorded in scenes/models.json."""
+    path = pathlib.Path(__file__).resolve().parent.parent / "scenes" / "models.json"
+    out = ["ARTWORK IN 3D SCENES\n\n",
+           "The 3D scenes that are baked from this project's scenes folder and offered for download\n"
+           "contain models by other authors, converted from MagicaVoxel files to meshes, recoloured in\n"
+           "places and arranged into scenes. Each scene file names the models it uses.\n\n"]
+    for p in json.loads(path.read_text(encoding="utf-8")).values():
+        out.append(f'{p["title"]}  |  {p["license"]}  |  {p["author"]}  |  {p["source"]}\n')
+        out.append(f'  {p["attribution"]}. License: {p["licenseUrl"]}\n')
+    return "".join(out) + "\n"
 
 
 def cargo(*args):
@@ -132,6 +146,7 @@ def build():
 
     out = [HEADER, ICONS if MAC else "", f"LIBRARIES ({len(all_crates)})\n\n", "\n".join(list_lines), "\n\n"]
     out.append("Slint is used under the GNU GPL v3, the same license as Kumo. See About Kumo, License.\n\n")
+    out.append(artwork())
     out.append("LICENSES\n")
     for text, names in sorted(groups.items(), key=lambda g: g[1][0]):
         out += ["\n", "=" * 78, "\n", "Applies to: ", ", ".join(names), "\n\n", text, "\n"]

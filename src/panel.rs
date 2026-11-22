@@ -130,6 +130,7 @@ struct Ctx {
     /// looked up every 30 s, a process list is too much for the 2 second tick
     other_app: Option<&'static str>,
     other_app_at: Option<Instant>,
+    /// the user's own wallpapers, without the built-in scenes
     items: usize,
     config_time: Option<std::time::SystemTime>,
     identify: Vec<IdentifyWindow>,
@@ -229,7 +230,7 @@ fn refresh(app: &PanelWindow, ctx: &mut Ctx) {
         })
         .collect();
     st.set_tiles(ModelRc::new(VecModel::from(tiles)));
-    ctx.items = items.len();
+    ctx.items = items.iter().filter(|it| !it.builtin).count();
 
     // monitor canvas: rectangles as fractions of the bounding box
     let (x0, y0) = (mons.iter().map(|m| m.rect.left).min().unwrap_or(0), mons.iter().map(|m| m.rect.top).min().unwrap_or(0));
@@ -424,7 +425,7 @@ fn show_info(app: &PanelWindow, ctx: &mut Ctx) {
         Info::Failed(library::get(id).map_or_else(|| id.clone(), |i| i.title), why.clone())
     } else if let Some(app_name) = ctx.other_app(false) {
         Info::OtherApp(app_name)
-    } else if ctx.items <= 1 {
+    } else if ctx.items == 0 {
         Info::Welcome
     } else {
         Info::None
@@ -546,7 +547,7 @@ fn import(weak: slint::Weak<PanelWindow>, ctx: Rc<RefCell<Ctx>>, files: Vec<Path
             if !errors.is_empty() {
                 c.info = Info::Message(3, errors.join("\n"));
             } else if let Some(item) = added {
-                if c.items <= 1 {
+                if c.items == 0 {
                     // the very first own wallpaper is what the user came for
                     c.cfg = Config::load();
                     apply_everywhere(&mut c.cfg, &item.id);
@@ -609,10 +610,10 @@ struct Credits {
 }
 
 impl Credits {
-    /// None for the user's own files and the built-in scene.
+    /// None for the user's own files and for a built-in scene that is all Kumo's own.
     fn of(item: &Item, tr: &Tr) -> Option<Credits> {
         let provenance = [&item.catalog_id, &item.license, &item.credit, &item.author, &item.source].iter().any(|s| !s.trim().is_empty());
-        if item.builtin || !provenance {
+        if !provenance {
             return None;
         }
         let line = match (item.credit.trim(), item.author.trim()) {
@@ -1779,8 +1780,11 @@ mod tests {
         item.source_url = "https://example.org/wave".into();
         let c = Credits::of(&item, &tr).unwrap();
         assert_eq!((c.line.as_str(), c.source.as_str(), c.source_url.as_str()), ("Hokusai, The Museum, CC BY 4.0", "Source page", "https://example.org/wave"));
+        // a built-in scene made with someone else's models shows its credit too
         item.builtin = true;
-        assert_eq!(Credits::of(&item, &tr), None);
+        assert!(Credits::of(&item, &tr).is_some());
+        let pagoda = Item { title: "Voxel Pagoda Garden".into(), kind: Kind::Scene, builtin: true, ..Item::default() };
+        assert_eq!(Credits::of(&pagoda, &tr), None);
     }
 
     #[test]

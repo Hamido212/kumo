@@ -14,6 +14,7 @@ mod desktop;
 mod engine;
 mod env;
 mod gfx;
+mod inflate;
 mod install;
 mod library;
 mod media;

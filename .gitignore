@@ -7,3 +7,5 @@ scenes/*/node_modules
 /package/store
 /kumo-mac/target
 __pycache__/
+/scenes/models/
+/scenes/out/

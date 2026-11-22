@@ -1,13 +1,51 @@
-//! The wallpaper library: the built-in pagoda scene plus everything the user added.
+//! The wallpaper library: the built-in scenes plus everything the user added.
 //!
 //! Every added wallpaper lives in its own folder `%APPDATA%\Kumo\library\<id>\` with the media
-//! file, a `thumb.jpg` and a `wallpaper.json` describing it.
+//! file, a `thumb.jpg` and a `wallpaper.json` describing it. Built-in scenes are part of the
+//! program; their folder holds only the thumbnail.
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 pub static PAGODA_SCENE: &[u8] = include_bytes!("../assets/pagoda.kumo");
 static PAGODA_THUMB: &[u8] = include_bytes!("../assets/pagoda-thumb.jpg");
+
+/// A scene that ships inside the program.
+struct Builtin {
+    id: &'static str,
+    title: &'static str,
+    thumb: &'static [u8],
+    /// packed by scenes/pack.mjs; None for the pagoda, which is the fallback for everything
+    /// that fails and so stays as it is, ready without unpacking
+    packed: Option<&'static [u8]>,
+    /// the models come from someone else
+    metro_minis: bool,
+}
+
+macro_rules! packed_scene {
+    ($id:literal, $title:literal) => {
+        Builtin {
+            id: $id,
+            title: $title,
+            thumb: include_bytes!(concat!("../assets/scenes/", $id, "-thumb.jpg")),
+            packed: Some(include_bytes!(concat!("../assets/scenes/", $id, ".kumo.z"))),
+            metro_minis: true,
+        }
+    };
+}
+
+/// The first one is `config::BUILTIN_SCENE`. To add a scene: bake it, list it in
+/// scenes/pack.mjs and here, and put a 480x270 `<id>-thumb.jpg` next to the packed file.
+static BUILTIN: &[Builtin] = &[
+    Builtin { id: crate::config::BUILTIN_SCENE, title: "Voxel Pagoda Garden", thumb: PAGODA_THUMB, packed: None, metro_minis: false },
+    packed_scene!("metro-block", "Metro Block"),
+    packed_scene!("autumn-village", "Autumn Village"),
+    packed_scene!("winter-square", "Winter Square"),
+];
+
+fn builtin(id: &str) -> Option<&'static Builtin> {
+    BUILTIN.iter().find(|b| b.id == id)
+}
 
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug, Default)]
 #[serde(rename_all = "lowercase")]
@@ -24,13 +62,13 @@ pub struct Item {
     pub id: String,
     pub title: String,
     pub kind: Kind,
-    /// media file name inside the item's folder (empty for the built-in scene)
+    /// media file name inside the item's folder (empty for a built-in scene)
     #[serde(default)]
     pub file: String,
     #[serde(default)]
     pub builtin: bool,
-    // Provenance of a catalogue download; all empty for the user's own files, so their
-    // wallpaper.json stays as it always was.
+    // Provenance of a catalogue download or of a built-in scene's models; all empty for the
+    // user's own files, so their wallpaper.json stays as it always was.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub author: String,
     /// short name such as "CC0 1.0" or "Public domain"
@@ -73,26 +111,45 @@ impl Item {
 
     /// The scene file's bytes (built-in or from disk).
     pub fn scene_bytes(&self) -> std::io::Result<std::borrow::Cow<'static, [u8]>> {
-        if self.builtin {
-            Ok(std::borrow::Cow::Borrowed(PAGODA_SCENE))
-        } else {
-            std::fs::read(self.path()).map(std::borrow::Cow::Owned)
+        use std::borrow::Cow;
+        if !self.builtin {
+            return std::fs::read(self.path()).map(Cow::Owned);
+        }
+        match builtin(&self.id).and_then(|b| b.packed) {
+            Some(packed) => crate::inflate::unpack(packed).map(Cow::Owned).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e)),
+            None => Ok(Cow::Borrowed(PAGODA_SCENE)),
         }
     }
 }
 
-fn builtin() -> Item {
-    Item { id: crate::config::BUILTIN_SCENE.into(), title: "Voxel Pagoda Garden".into(), kind: Kind::Scene, builtin: true, ..Item::default() }
+impl Builtin {
+    fn item(&self) -> Item {
+        let item = Item { id: self.id.into(), title: self.title.into(), kind: Kind::Scene, builtin: true, ..Item::default() };
+        if !self.metro_minis {
+            return item;
+        }
+        // CC BY asks for the author, the source, the licence and a note of what was changed
+        Item {
+            author: "Mike Judge".into(),
+            license: "CC BY 4.0".into(),
+            license_url: "https://creativecommons.org/licenses/by/4.0/".into(),
+            source: "Mini Mike's Metro Minis".into(),
+            source_url: "https://github.com/mikelovesrobots/mmmm".into(),
+            credit: format!("{}, a scene by Kumo. Voxel models from Mini Mike's Metro Minis by Mike Judge, CC BY 4.0, turned into meshes, partly recoloured and arranged.", self.title),
+            ..item
+        }
+    }
 }
 
-/// All wallpapers: the built-in one first, then the user's, newest first.
+/// All wallpapers: the built-in scenes first, then the user's, newest first.
 pub fn list() -> Vec<Item> {
-    let b = builtin();
-    if !b.thumbnail().exists() {
-        let _ = std::fs::create_dir_all(b.folder());
-        let _ = std::fs::write(b.thumbnail(), PAGODA_THUMB);
+    let mut items: Vec<Item> = BUILTIN.iter().map(Builtin::item).collect();
+    for (b, item) in BUILTIN.iter().zip(&items) {
+        if !item.thumbnail().exists() {
+            let _ = std::fs::create_dir_all(item.folder());
+            let _ = std::fs::write(item.thumbnail(), b.thumb);
+        }
     }
-    let mut items = vec![b];
     let mut added: Vec<(std::time::SystemTime, Item)> = Vec::new();
     if let Ok(entries) = std::fs::read_dir(dir()) {
         for e in entries.flatten() {
@@ -209,7 +266,7 @@ pub fn adopt(tmp: &Path, ext: &str, info: Item, thumb: Option<&Path>) -> Result<
 pub fn sweep() {
     for e in std::fs::read_dir(dir()).into_iter().flatten().flatten() {
         // files here are downloads in progress (`*.part`), not items
-        if e.path().is_dir() && e.file_name() != crate::config::BUILTIN_SCENE && !e.path().join("wallpaper.json").exists() {
+        if e.path().is_dir() && builtin(&e.file_name().to_string_lossy()).is_none() && !e.path().join("wallpaper.json").exists() {
             let _ = std::fs::remove_dir_all(e.path());
         }
     }
@@ -267,6 +324,35 @@ mod tests {
     }
 
     #[test]
+    fn every_built_in_scene_unpacks_and_loads() {
+        assert_eq!(BUILTIN[0].id, crate::config::BUILTIN_SCENE);
+        for b in BUILTIN {
+            let item = b.item();
+            let bytes = item.scene_bytes().unwrap_or_else(|e| panic!("{}: {e}", b.id));
+            crate::scene::parse(&bytes).unwrap_or_else(|e| panic!("{}: {e}", b.id));
+            // packed scenes come from scenes/out: if that bake is still there, the bytes must match
+            let baked = Path::new(env!("CARGO_MANIFEST_DIR")).join("scenes/out").join(format!("{}.kumo", b.id));
+            if let (Some(_), Ok(original)) = (b.packed, std::fs::read(baked)) {
+                assert!(bytes[..] == original[..], "{}: run `node scenes/pack.mjs` after baking", b.id);
+            }
+            assert_eq!(item.credit.is_empty(), !b.metro_minis);
+            assert_eq!(&b.thumb[..3], [0xFF, 0xD8, 0xFF], "{}: the thumbnail is not a JPEG", b.id);
+        }
+    }
+
+    #[test]
+    fn built_in_scenes_come_first_and_survive_a_sweep() {
+        let (_g, _base) = test_home("library-builtin");
+        let ids: Vec<String> = list().into_iter().map(|i| i.id).collect();
+        assert_eq!(ids, ["pagoda", "metro-block", "autumn-village", "winter-square"]);
+        sweep();
+        for item in list() {
+            assert!(item.builtin && item.thumbnail().exists(), "{}", item.id);
+            assert!(remove(&item.id).is_err());
+        }
+    }
+
+    #[test]
     fn provenance_round_trip() {
         let item = Item {
             id: "a".into(),
@@ -307,7 +393,7 @@ mod tests {
         assert!(adopt(&tmp, "../x", info, None).is_err());
         assert!(!tmp.exists());
         sweep();
-        assert_eq!(list().len(), 2);
+        assert_eq!(list().len(), BUILTIN.len() + 1);
     }
 
     #[test]

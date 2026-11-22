@@ -50,7 +50,7 @@ look after the catalogue.
 | Field | Meaning |
 |---|---|
 | `id` | `[a-z0-9-]{1,64}`, unique and stable: source prefix plus the source's own number (`svs-`, `cma-`, `esahubble-`, `esawebb-`, `eso-`; `met-` and `smk-` for the sources that are switched off) |
-| `kind` | `image` or `video` |
+| `kind` | `image` or `video` (the app also knows `scene`, see [3D scenes](#3d-scenes) below) |
 | `category` | one of the `categories` ids: `space`, `nightsky`, `earth`, `japan`, `landscape` |
 | `thumb`, `file` | https URLs on the app's host list, checked with a HEAD request at build time |
 | `bytes`, `width`, `height` | from the server's `Content-Length`; the pixel size from the source's data or from the JPEG's own header (see below) |
@@ -212,12 +212,84 @@ a mount instead of the work.
    [Impressum](https://kumo.hyos.tech/impressum) (`hello@hyos.tech`): what was removed and when.
 3. If the claim is unclear, keep the item removed while you check it with the source.
 
+## 3D scenes
+
+3D scenes are what other wallpaper apps do not have, and the catalogue can carry them: the app
+already knows items of kind `scene`. **No scene is listed yet.** This section says what is ready
+and what has to happen first.
+
+**What a scene item is.** A `.kumo` file baked by the scripts in `scenes/` (see
+[scenes/README.md](../scenes/README.md)): a list of numbers and one block of vertices. It holds
+no code, no script and no texture. Three scenes exist: Metro Block, Autumn Village and Winter
+Square, about 5 MB each. These three ship inside Kumo (packed to about 1 MB each), so they are
+not catalogue items; what follows is for scenes that come later as downloads.
+
+**What the app does with it** (`src/catalog.rs`): it downloads the file from a host on its list
+with a cap of 50 MB, checks `bytes` and `sha256`, makes sure the file really is a scene (it starts
+with `KUMO`), and reads it with the engine's own reader (`scene::parse`), which refuses any
+number that would send the renderer outside its data. Only then does the file enter the library,
+with title, author, licence and credit, like any other download.
+
+**Where the files live.** Unlike pictures, scenes have no source server of their own, so we host
+them: the file and a 480x270 preview next to the catalogue on `kumo.hyos.tech`, which is on the
+app's list already (later `cdn.kumo.hyos.tech`). A scene that changes gets a new file name, so
+`bytes` and `sha256` of a listed file never change.
+
+**The item**, with the values of today's bake as an example:
+
+```json
+{
+  "id": "kumo-metro-block",
+  "title": "Metro Block",
+  "author": "Kumo, with models by Mike Judge",
+  "kind": "scene",
+  "category": "scenes",
+  "source": "Kumo",
+  "sourceUrl": "https://github.com/Hamido212/kumo/tree/main/scenes/metro",
+  "license": "CC BY 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+  "credit": "“Metro Block”, a 3D scene by Kumo. Buildings, vehicles and street furniture: Mini Mike's Metro Minis by Mike Judge (github.com/mikelovesrobots/mmmm), converted to meshes, recoloured and arranged. Additional Artwork by Mike Judge. CC BY 4.0.",
+  "thumb": "https://kumo.hyos.tech/catalog/v1/scenes/metro-block-1.jpg",
+  "file": "https://kumo.hyos.tech/catalog/v1/scenes/metro-block-1.kumo",
+  "bytes": 4929444, "width": 0, "height": 0,
+  "duration": 0, "codec": "",
+  "sha256": "75b7f401458d301a5e34397b373123c3f2a37728fab459d73884aeb131ab89fb", "revoked": false
+}
+```
+
+* `credit` is what CC BY 4.0 asks for in one line: the work, its author, the source, the licence
+  and that it was changed. The app shows it with the item and keeps it in the library. The same
+  facts are inside the file (`credits` in its manifest, with the name of every model used) and in
+  `assets/third-party-notices.txt`.
+* `sha256` is always filled in for scenes: we make the file, so we know it.
+* `width` and `height` are 0: a scene has no pixel size, it is drawn at the screen's.
+
+**Before the first scene can be listed:**
+
+1. **A licence for Kumo's own part.** The models are CC BY 4.0. The islands, ground and the
+   arrangement come from the GPL scripts in `scenes/`. The item needs one licence from the
+   catalogue's list, so the publisher has to decide to offer the baked scenes under CC BY 4.0
+   (the scene files name "GPL-3.0" for Kumo's part until then).
+2. **The tool.** `tools/catalog.py check` accepts only `image` and `video`, asks for a pixel size
+   and has no size cap for scenes. It needs: kind `scene` with a cap of 50 MB and no pixel size, a
+   category `scenes` ("3D scenes" / "3D-Szenen"), and a small source that reads a hand-written
+   list of our own scenes instead of asking an API.
+3. **A look at the Discover tab** with a scene item, from a local catalogue file (`KUMO_CATALOG`):
+   preview, the line under the title, download, and the scene running afterwards. The download
+   path is covered by tests, the look of a scene card is not.
+4. **Files on the website:** bake, render the preview with
+   `kumo.exe --shot preview.bmp --scene file.kumo --size 1920x1080 --hour 18.4`, scale it to
+   480x270, and put both next to the catalogue. Then build, review and deploy as for any change.
+
+**Memory.** A scene must not need much more memory than the built-in one; the numbers are in
+[scenes/README.md](../scenes/README.md). Measure a new scene before listing it.
+
 ## Next steps
 
 * **Our own file mirror** on object storage (`cdn.kumo.hyos.tech`) for sources that discourage
   hotlinking, such as Wikimedia Commons, and for previews made with `--thumbs`.
-* **Downloadable `.kumo` 3D scenes**, built from CC0 voxel assets with the scene generator in
-  `scenes/`.
+* **Listing the 3D scenes** from `scenes/`: what is ready and what is missing is under
+  [3D scenes](#3d-scenes) above.
 * **A signed catalogue**, so the app can tell that the index really comes from us.
 * As Kumo is free, a later version could consider **CC BY-SA 4.0** works and sources whose API is
   free for apps that do not charge (Coverr), each only after a written OK from the source.
