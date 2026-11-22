@@ -139,6 +139,11 @@ we changed ("Changes: resized from 5120x2880 to 3840x2160, converted from PNG to
 | [ESA/Hubble](https://esahubble.org/copyright/) | CC BY 4.0 | hand-picked images, see the variant order below | the image's credit line, "ESA/Hubble, CC BY 4.0" |
 | [ESA/Webb](https://esawebb.org/copyright/) | CC BY 4.0 | hand-picked images, see the variant order below | the image's credit line, "ESA/Webb, CC BY 4.0" |
 | [ESO](https://www.eso.org/public/copyright/) | CC BY 4.0 | nebulae, galaxies and star clusters (Space), and photographs of the Paranal, La Silla, ALMA and APEX sites under the night sky (Night sky); candidates from ESO's Top 100 and archive categories | the image's credit line, unaltered, "ESO, CC BY 4.0", link |
+| [KDE Plasma wallpapers](https://invent.kde.org/plasma/plasma-workspace-wallpapers) and the current default in [Breeze](https://invent.kde.org/plasma/breeze/-/tree/master/wallpapers/Next) (mirrored) | CC BY-SA 4.0, as each wallpaper's `metadata.json` states | every wallpaper whose `metadata.json` says `CC-BY-SA-4.0`, light and dark variants; the LGPL-3 ones stay out | title and author from `metadata.json`, "KDE Plasma wallpapers", link, CC BY-SA 4.0, changes |
+| [Pop!_OS wallpapers](https://github.com/pop-os/wallpapers) (mirrored) | CC BY-SA 4.0 for the works the README lists under Kate Hazen (designed for System76) and Nick Nazzaro (commissioned by System76) | those works without the Pop!_OS logo, slogans or mascots; never the Unsplash photos | author, "Pop!_OS wallpapers (System76)", link, CC BY-SA 4.0, changes |
+| [COSMIC wallpapers](https://github.com/pop-os/cosmic-wallpapers) (mirrored) | CC BY 4.0 for the files the README marks "Source: System76" | System76's own picture, not the logo or the NASA/ESA pictures | "System76", link, CC BY 4.0, changes |
+| [Fedora backgrounds](https://github.com/fedoradesign/backgrounds) (mirrored) | CC BY-SA 4.0 (`Attribution` file of each release tag, and the package spec) | the default wallpapers of Fedora 33 to 43, day and night where they differ | "Fedora Design Team", release, link, CC BY-SA 4.0, changes |
+| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 entries only | community contest pictures whose file name the CC BY-SA 4.0 entry names exactly; no Canonical release artwork with mascot or logo, no CC0/Unsplash, 2.0 or 3.0 entries | title and author from the file name, "Ubuntu wallpapers", link, CC BY-SA 4.0, changes |
 
 For ESA and ESO images the tool takes the 3840x2160 desktop wallpaper (`wallpaper_uhd`) if the
 site made one; else the larger of the publication JPEG and the large JPEG that is landscape, at
@@ -183,6 +188,71 @@ first; `python tools/catalog.py build --only smk` still runs it (it asks for 384
 * **Steam Workshop:** the Subscriber Agreement limits Workshop items to use with Steam.
 * **Pexels, Pixabay, Unsplash:** their terms forbid using the content in a wallpaper app as such.
 * **Mixkit, Freepik:** no redistribution of the files.
+* **Omarchy** (github.com/basecamp/omarchy, MIT): the MIT licence covers what the project's authors
+  own, and no theme background has a record that it was made by or for the project and licensed by
+  its author. We traced every background through the git history, pull requests and the theme
+  authors' own repositories (November 2026): community pull requests add pictures found elsewhere
+  without a source (issue #617 asked for "backgrounds that match", nothing about rights), one theme's
+  README shows wallpaper-site file names, several are AI-upscaled or AI-reworked copies of other
+  works, the Starship theme says its SpaceX photographs are not covered by MIT, and others show
+  third-party property (Severance's Lumon, Totoro, an Audi quattro with its logos, a Hopper
+  painting). None is mirrored.
+* **GNOME backgrounds:** the module's `COPYING` says CC BY-SA 3.0 United States, and authors are
+  named only inside the image files. Left out while 3.0 is excluded.
+* **Unsplash photos inside distribution packages** (Pop!_OS, Ubuntu's `Unsplash` and CC0 entries,
+  elementary OS): the Unsplash licence, or an old Unsplash CC0 grant we cannot check with the
+  photographer.
+* **Budgie backgrounds** (CC0): the repository does not record per file who made each photo and
+  where it came from, which its own rules ask of submitters. Not taken for now.
+* **KDE wallpapers under LGPL-3** and **Ubuntu entries under CC BY-SA 2.0/3.0 or CC BY 2.0**: not on
+  the licence list.
+
+## Our own mirror
+
+Some good free sources have no server a wallpaper app may use, so we host their files ourselves in
+the public GitHub repository [Hamido212/kumo-wallpapers](https://github.com/Hamido212/kumo-wallpapers)
+(branch `main`). Kumo downloads them from `https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/<path>`.
+
+* `pictures/<source>/<id>.jpg` (or `.png` for flat art where that is smaller), a 480x270 preview at
+  `thumbs/pictures/<id>.jpg`, and `pictures/items.json` with every fact the catalogue needs: title,
+  author, source and its page, licence and its page, the full credit line, the changes we made,
+  category, pixel size, bytes, sha256, the file and preview paths, the original's URL, size and
+  hash, and where we read the licence. `loops/` (videos) and `scenes/` (`.kumo` 3D scenes) follow
+  the same pattern with their own `items.json`.
+* `CREDITS.md` lists every file with title, author, source, licence and changes; `LICENSES/` has
+  the full licence texts; `README.md` says that every file keeps its own licence and how to report
+  a problem.
+* **Rules for a mirrored picture:** a licence from the list above, read on the source's own licence
+  file or page for that exact file; the content rules of the catalogue (no people, logos, brand
+  marks, mascots or slogans as the subject, no text-heavy pictures, family-friendly); landscape,
+  at least 1920 px wide, aspect 1.3 to 2.4. Originals wider than 3840 px are scaled down with a
+  Lanczos filter, saved as a baseline JPEG at quality 88 (no progressive JPEG, for Kumo's memory),
+  or as PNG for flat art where that is smaller, without metadata, never above 6 MB. A person looks
+  at every picture before it goes in.
+* GitHub serves files of this repository only as long as they are plain files: no Git LFS (raw
+  links would return the LFS pointer), and no file above GitHub's limit of 100 MB.
+* The catalogue item carries `bytes` and `sha256`, so the app refuses a file that changed. A
+  changed picture gets a new file name.
+
+**Adding a mirrored picture:** check the licence on the source's own file or page, add a record
+to `tools/mirror-pictures.json` (id with the source prefix, title, author, source page, licence,
+licence page, where you read the licence, the download URL of the original, category, `flat` for
+flat art), then:
+
+```powershell
+python tools/mirror_pictures.py fetch                          # the original, once, into target/mirror-src/
+python tools/mirror_pictures.py build --mirror ..\kumo-wallpapers   # file, preview, items.json, CREDITS.md, LICENSES/
+```
+
+Look at the new preview, commit and push the mirror repository, wait until the file answers on
+`raw.githubusercontent.com`, then build the catalogue (below). `mirror_pictures.py` needs Pillow,
+and ffmpeg for JPEG XL originals.
+
+**Before the files are published** the catalogue cannot check their URLs. `python tools/catalog.py
+build --only mirror --mirror-local --out target/catalog-with-mirror.json` checks each mirror item
+against the local copy instead (the file is there, has the size and sha256 of its record and the
+type of its kind) and writes the would-be catalogue without touching `site/`. After publishing, a
+normal `build` checks the mirror's URLs on GitHub like every other source's.
 
 ## Building the catalogue
 
@@ -206,11 +276,19 @@ User-Agent unless `--user-agent` says otherwise. It never downloads a picture or
 * `--thumbs DIR` downloads every preview and writes `DIR/<id>.jpg` at 480x270, for hosting previews
   ourselves later (needs Windows for the picture scaling).
 * `--only NAME` rebuilds one source and keeps the others from the last build.
+* `--mirror DIR` names the local copy of the kumo-wallpapers repository (default:
+  `../kumo-wallpapers` next to this repository). Without it on the machine, the build keeps the
+  mirror items of the last catalogue.
+* `--mirror-local` checks mirror items against that local copy instead of GitHub.
+* `--out FILE` writes the catalogue somewhere else than `site/catalog/v1/catalog.json`.
+* `check FILE --mirror-local [--mirror DIR]` also compares the mirror items of a catalogue file
+  with the local copy (file and preview present, size and sha256 equal).
 
 ### The review pass
 
 Every build writes `target/catalog-review.html`, a contact sheet with each preview (loaded from the
-source), its title, credit, id, size and codec. Look through it before deploying: a word list does
+source, or from the local copy for mirror items checked with `--mirror-local`), its title, credit,
+id, size and codec. Look through it before deploying: a word list does
 not see what a picture shows, a video can have a title card, and a museum photo can show a frame or
 a mount instead of the work.
 
@@ -220,8 +298,8 @@ a mount instead of the work.
   deploy.
 * **Add a single item** from a source that is already there: for ESA, add the image id to `IDS` in
   `EsaHubble` or `EsaWebb`; for ESO, add a listing to `LISTINGS`; for the others, add a search to
-  the source's `SEARCHES`. The rules apply
-  as to everything else.
+  the source's `SEARCHES`; for a mirrored picture see [Our own mirror](#our-own-mirror). The rules
+  apply as to everything else.
 * **Add a source:** write a small `Source` class in `tools/catalog.py` with a `candidates()` method
   that yields items, add it to `SOURCES`, and add its media hosts to the app's host list (in
   `src/catalog.rs`) and to `ALLOWED_HOSTS` in the tool. Check its licence and terms first, and add a
@@ -232,9 +310,16 @@ a mount instead of the work.
 1. Remove the item at once: add `<id> revoked` to `tools/catalog-exclude.txt`, build and deploy.
    The entry stays in the catalogue with `"revoked": true`, so apps stop offering it and can remove
    copies they downloaded. Because of the short cache time this takes effect within minutes.
-2. Answer the sender within 72 hours, from the contact address in the
+2. **For a mirrored file** also delete the file and its preview from the kumo-wallpapers repository,
+   remove its record from the folder's `items.json` and its line from `CREDITS.md` (for pictures:
+   remove it from `tools/mirror-pictures.json` and run `mirror_pictures.py build`, which rewrites
+   both; delete the file and preview by hand), and push. The catalogue item stays, marked revoked
+   by step 1. Deleting the file stops new downloads even in apps that still have an old catalogue.
+   The file remains in the repository's git history; if the claim asks for that too, rewrite the
+   history and ask GitHub to drop cached views.
+3. Answer the sender within 72 hours, from the contact address in the
    [Impressum](https://kumo.hyos.tech/impressum) (`hello@hyos.tech`): what was removed and when.
-3. If the claim is unclear, keep the item removed while you check it with the source.
+4. If the claim is unclear, keep the item removed while you check it with the source.
 
 ## 3D scenes
 
@@ -294,10 +379,10 @@ app's list already (later `cdn.kumo.hyos.tech`). A scene that changes gets a new
    arrangement come from the GPL scripts in `scenes/`. The item needs one licence from the
    catalogue's list, so the publisher has to decide to offer the baked scenes under CC BY 4.0
    (the scene files name "GPL-3.0" for Kumo's part until then).
-2. **The tool.** `tools/catalog.py check` accepts only `image` and `video`, asks for a pixel size
-   and has no size cap for scenes. It needs: kind `scene` with a cap of 50 MB and no pixel size, a
-   category `scenes` ("3D scenes" / "3D-Szenen"), and a small source that reads a hand-written
-   list of our own scenes instead of asking an API.
+2. **The tool** is ready: `check` accepts kind `scene` with a cap of 50 MB and no pixel size, the
+   category `scenes` ("3D scenes" / "3D-Szenen") exists, and the mirror source reads
+   `scenes/items.json` of the kumo-wallpapers repository, so scenes can be hosted there as well as
+   next to the catalogue.
 3. **A look at the Discover tab** with a scene item, from a local catalogue file (`KUMO_CATALOG`):
    preview, the line under the title, download, and the scene running afterwards. The download
    path is covered by tests, the look of a scene card is not.
@@ -310,10 +395,13 @@ app's list already (later `cdn.kumo.hyos.tech`). A scene that changes gets a new
 
 ## Next steps
 
-* **Our own file mirror** on object storage (`cdn.kumo.hyos.tech`) for sources that discourage
-  hotlinking, such as Wikimedia Commons, and for previews made with `--thumbs`.
+* **Publishing the mirror** (kumo-wallpapers on GitHub): until then its items cannot be listed.
+  Later, object storage (`cdn.kumo.hyos.tech`) could take over for larger files, for sources that
+  discourage hotlinking such as Wikimedia Commons, and for the Met and SMK.
+* **GNOME backgrounds** if 3.0 works are ever accepted, and **Ubuntu files whose
+  `debian/copyright` entry differs from the file name** once Ubuntu corrects the entries.
 * **Listing the 3D scenes** from `scenes/`: what is ready and what is missing is under
   [3D scenes](#3d-scenes) above.
 * **A signed catalogue**, so the app can tell that the index really comes from us.
-* As Kumo is free, a later version could consider **CC BY-SA 4.0** works and sources whose API is
-  free for apps that do not charge (Coverr), each only after a written OK from the source.
+* As Kumo is free, a later version could consider sources whose API is free for apps that do not
+  charge (Coverr), each only after a written OK from the source.
