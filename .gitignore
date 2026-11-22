@@ -9,3 +9,5 @@ scenes/*/node_modules
 __pycache__/
 /scenes/models/
 /scenes/out/
+
+/.claude/
