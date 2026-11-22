@@ -237,6 +237,8 @@ the public GitHub repository [Hamido212/kumo-wallpapers](https://github.com/Hami
   Lanczos filter, saved as a baseline JPEG at quality 88 (no progressive JPEG, for Kumo's memory),
   or as PNG for flat art where that is smaller, without metadata, never above 6 MB. A person looks
   at every picture before it goes in.
+* The first set (November 2026): 108 pictures, about 114 MB with previews: KDE 30, Fedora 19,
+  Pop!_OS 8, COSMIC 1 and Ubuntu 50, in the categories `desktop` (70) and `photo` (38).
 * GitHub serves files of this repository only as long as they are plain files: no Git LFS (raw
   links would return the LFS pointer), and no file above GitHub's limit of 100 MB.
 * The catalogue item carries `bytes` and `sha256`, so the app refuses a file that changed. A
