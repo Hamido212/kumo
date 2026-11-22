@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { Grid, KIND_GLOW, meshGrid, groups } from './grid.mjs';
 import { parseVox, voxToGrid } from './vox.mjs';
 import { SceneWriter } from './kumo.mjs';
+import { Shapes, sphereCap } from './shapes.mjs';
 
 /** A minimal .vox file: one model, optional palette, optional extra chunks. */
 function voxFile(size, voxels, { palette = null, extra = [] } = {}) {
@@ -152,6 +153,46 @@ test('stamp turns and recolours a model', () => {
   assert.equal(g.get(4, 1, 6), KIND_GLOW);
   assert.equal(g.count(), 2);
   assert.equal(groups(g, () => true).length, 2);
+});
+
+/** Every triangle's winding agrees with its stored normal (the engine culls the other side). */
+function assertFacing(geo, outward = null) {
+  const p = (i) => [geo.pos[i * 3], geo.pos[i * 3 + 1], geo.pos[i * 3 + 2]];
+  for (let t = 0; t < geo.idx.length; t += 3) {
+    const [a, b, c] = [p(geo.idx[t]), p(geo.idx[t + 1]), p(geo.idx[t + 2])];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    const i = geo.idx[t] * 4, stored = [geo.nrm[i], geo.nrm[i + 1], geo.nrm[i + 2]];
+    assert.ok(n[0] * stored[0] + n[1] * stored[1] + n[2] * stored[2] > 0, `triangle ${t / 3} is wound against its normal`);
+    if (outward) {
+      const m = [(a[0] + b[0] + c[0]) / 3 - outward[0], (a[1] + b[1] + c[1]) / 3 - outward[1], (a[2] + b[2] + c[2]) / 3 - outward[2]];
+      assert.ok(n[0] * m[0] + n[1] * m[1] + n[2] * m[2] > 0, `triangle ${t / 3} faces inwards`);
+    }
+  }
+}
+
+test('shapes are wound the way their normals point', () => {
+  const g = new Shapes();
+  g.flat(0, 0, 2, 3, 1, 0x808080, { glow: true });
+  g.box(-1, -1, -1, 1, 1, 1, 0x808080);
+  g.poly([[0, 0, 5], [1, 0, 5], [1, 1, 5], [0, 1, 5]], [0xff0000, 0x00ff00, 0x0000ff, 0xffffff], { sway: 0.5 });
+  const geo = g.build();
+  assertFacing(geo);
+  assert.equal(geo.pos.length / 3, 4 + 24 + 4);
+  assert.equal(geo.nrm[1], 127, 'a flat strip faces up');
+  assert.equal(geo.nrm[3], 1, 'and carries the glow flag');
+  assert.deepEqual([...geo.col.slice(-16, -12)], [255, 0, 0, 128]);
+  const box = new Shapes().box(-1, -1, -1, 1, 1, 1, 0x808080).build();
+  assertFacing(box, [0, 0, 0]);
+});
+
+test('a sphere cap faces outwards', () => {
+  const g = new Shapes();
+  const n = sphereCap(g, { center: [0, -100, 0], r: 100, angle: 0.4, rings: 6, segments: 12, color: () => 0x3060a0 });
+  assert.equal(n, 1 + 6 * 12);
+  const geo = g.build();
+  assertFacing(geo, [0, -100, 0]);
+  assert.ok(Math.abs(geo.pos[1]) < 1e-4, 'its top is at the top of the sphere');
 });
 
 test('writes a file the engine can read', () => {
