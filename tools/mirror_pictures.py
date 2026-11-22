@@ -150,15 +150,21 @@ def load(path):
                 notes.append(f"colour profile {name} converted to sRGB")
         except (OSError, ImageCms.PyCMSError):
             pass
+    # Pillow writes a source's comment (and in newer versions XMP) back when saving; nothing of
+    # the original's metadata may travel on, so the pixels go on without any of it
+    im.info = {}
     return im, notes
 
 
 def encode(im, flat):
     """(bytes, ext, quality): a baseline JPEG at quality 88, or a PNG where that is smaller (flat
-    art). JPEG quality steps down only if a file would be above 6 MB."""
+    art). JPEG quality steps down only if a file would be above 6 MB. No comment, EXIF, XMP or
+    colour profile is written: the image's info is cleared and empty values are passed explicitly."""
+    im.info = {}
     def jpeg(q):
         b = io.BytesIO()
-        im.save(b, "JPEG", quality=q, optimize=True, progressive=False, subsampling="4:2:0" if not flat else "4:4:4")
+        im.save(b, "JPEG", quality=q, optimize=True, progressive=False, subsampling="4:2:0" if not flat else "4:4:4",
+                comment=b"", exif=b"", icc_profile=None)
         return b.getvalue()
     out, ext, q = jpeg(JPEG_QUALITY), "jpg", JPEG_QUALITY
     if flat:
@@ -174,28 +180,62 @@ def encode(im, flat):
     return out, ext, q
 
 
-def strip_jpeg(data):
-    """A baseline JPEG without its metadata (EXIF, XMP, IPTC, an sRGB colour profile, comments),
-    losslessly: the image data stays byte for byte. None if the file is progressive or cannot be
-    walked, so it has to be encoded again. Only called when load() found no other colour profile."""
+def jpeg_segments(data):
+    """(marker, segment, offset) for every header segment of a JPEG up to and including the start
+    of scan; None if the file is not a JPEG that can be walked."""
     if data[:2] != b"\xff\xd8":
         return None
-    out, i = bytearray(b"\xff\xd8"), 2
+    out, i = [], 2
     while i + 4 <= len(data) and data[i] == 0xFF:
         marker = data[i + 1]
         if marker == 0xFF:
             i += 1
             continue
         length = int.from_bytes(data[i + 2:i + 4], "big")
-        segment = data[i:i + 2 + length]
-        if marker == 0xDA:  # start of scan: the rest is image data
-            return bytes(out + data[i:])
-        if marker in (0xC2, 0xC6, 0xCA, 0xCE):  # progressive: decoding it needs much more memory
-            return None
-        if not (0xE1 <= marker <= 0xEF or marker == 0xFE):  # keep everything but APP1-APP15 and COM
-            out += segment
+        out.append((marker, data[i:i + 2 + length], i))
+        if marker == 0xDA:
+            return out
         i += 2 + length
     return None
+
+
+def harmless(marker, segment):
+    """The JPEG header segments a mirrored file may keep: everything that is not metadata, plus
+    the JFIF header (APP0) and Adobe's colour-transform flag (APP14), which carry no personal data
+    and which decoders need to show the colours right."""
+    if marker == 0xE0:
+        return segment[4:9] == b"JFIF\0"
+    if marker == 0xEE:
+        return segment[4:9] == b"Adobe"
+    return not (0xE1 <= marker <= 0xEF or marker == 0xFE)
+
+
+def metadata_left(data):
+    """What metadata a mirrored file still carries (empty when none): JPEG comments, EXIF, XMP,
+    IPTC, colour profiles and any other APPn block; PNG text, EXIF, time and profile chunks."""
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        found, i = [], 8
+        while i + 8 <= len(data):
+            length, kind = int.from_bytes(data[i:i + 4], "big"), data[i + 4:i + 8]
+            if kind in (b"tEXt", b"zTXt", b"iTXt", b"eXIf", b"tIME", b"iCCP"):
+                found.append(kind.decode())
+            i += 12 + length
+        return found
+    segments = jpeg_segments(data)
+    if segments is None:
+        return ["not a JPEG or PNG that can be read"]
+    return [f"{'COM' if m == 0xFE else f'APP{m - 0xE0}'} {s[4:10]!r}" for m, s, _ in segments if not harmless(m, s)]
+
+
+def strip_jpeg(data):
+    """A baseline JPEG without its metadata (EXIF, XMP, IPTC, an sRGB colour profile, comments),
+    losslessly: the image data stays byte for byte. None if the file is progressive or cannot be
+    walked, so it has to be encoded again. Only called when load() found no other colour profile."""
+    segments = jpeg_segments(data)
+    if segments is None or any(m in (0xC2, 0xC6, 0xCA, 0xCE) for m, _, _ in segments):  # progressive: needs much more memory
+        return None
+    head = b"".join(s for m, s, _ in segments[:-1] if harmless(m, s))
+    return b"\xff\xd8" + head + data[segments[-1][2]:]  # the start of scan and everything after it stays as it is
 
 
 def thumb(im):
@@ -210,8 +250,11 @@ def thumb(im):
     return b.getvalue()
 
 
-def changes_note(src_ext, w0, h0, w, h, ext, quality, notes):
-    """What we did to the original, as CC licences ask: 'Changes: resized from ..., converted ...'."""
+def changes_note(raw, out, src_ext, w0, h0, w, h, ext, quality, notes):
+    """What we did to the original, as CC licences ask ('Resized from ..., converted ...'), or
+    'none' when the mirrored file is byte for byte the original."""
+    if out == raw:
+        return "none"
     fmt = {"jpg": "JPEG", "png": "PNG", "webp": "WebP", "jxl": "JPEG XL"}
     q = f" (quality {quality})" if quality else ""
     parts = [f"resized from {w0}x{h0} to {w}x{h}"] if (w, h) != (w0, h0) else []
@@ -220,8 +263,10 @@ def changes_note(src_ext, w0, h0, w, h, ext, quality, notes):
     elif quality or ext == "png":  # encoded again; a JPEG kept as it was has no quality
         parts.append(f"saved again as {fmt[ext]}{q}")
     parts += notes
-    parts.append("metadata removed")
-    return "Changes: " + ", ".join(parts) + "."
+    if src_ext in ("jpg", "png") and metadata_left(raw):
+        parts.append("metadata removed")
+    text = ", ".join(parts) or "metadata removed"
+    return text[0].upper() + text[1:] + "."
 
 
 def build(args):
@@ -229,7 +274,7 @@ def build(args):
     mirror = pathlib.Path(args.mirror)
     data = picks()
     sources = data["sources"]
-    records, missing = [], []
+    records, missing, problems = [], [], []
     for p in data["pictures"]:
         src = original(p)
         if not src:
@@ -247,16 +292,21 @@ def build(args):
             out, ext, quality = encode(im, p.get("flat", False))
         rel = f"pictures/{p['source']}/{p['id']}.{ext}"
         prev = f"thumbs/pictures/{p['id']}.jpg"
-        for path, blob in ((rel, out), (prev, thumb(im))):
+        preview = thumb(im)
+        for path, blob in ((rel, out), (prev, preview)):
             (mirror / path).parent.mkdir(parents=True, exist_ok=True)
             if not (mirror / path).exists() or (mirror / path).read_bytes() != blob:
                 (mirror / path).write_bytes(blob)
         for stale in (mirror / "pictures" / p["source"]).glob(p["id"] + ".*"):
             if stale.name != pathlib.Path(rel).name:
                 stale.unlink()
+        left = metadata_left(out) + [f"preview: {x}" for x in metadata_left(preview)]
+        if left:
+            problems.append(f"{p['id']}: metadata left in the mirrored file: {', '.join(left)}")
         s = sources[p["source"]]
-        changes = changes_note(src.suffix[1:], w0, h0, im.width, im.height, ext, quality, notes)
-        credit = (f"“{p['title']}” by {p['author']}. {s['name']}, {p['sourceUrl']}. {p['license']}. {changes}")
+        changes = changes_note(raw, out, src.suffix[1:], w0, h0, im.width, im.height, ext, quality, notes)
+        credit = (f"“{p['title']}” by {p['author']}. {s['name']}, {p['sourceUrl']}. {p['license']}."
+                  + ("" if changes == "none" else f" Changes: {changes}"))
         records.append({
             "id": p["id"],
             "kind": "image",
@@ -277,6 +327,7 @@ def build(args):
             "original": {"url": p["download"], "width": w0, "height": h0, "bytes": len(raw),
                          "sha256": hashlib.sha256(raw).hexdigest()},
             "licenceEvidence": p["licenceEvidence"],
+            **({"authorEvidence": p["authorEvidence"]} if p.get("authorEvidence") else {}),
             **({"provenance": p["provenance"]} if p.get("provenance") else {}),
         })
         print(f"{p['id']}: {w0}x{h0} -> {im.width}x{im.height} {ext} {len(out) / 1e6:.2f} MB", flush=True)
@@ -301,7 +352,9 @@ def build(args):
     credits(mirror)
     total = sum(r["bytes"] for r in records)
     print(f"{len(records)} pictures, {total / 1e6:.1f} MB, largest {max(r['bytes'] for r in records) / 1e6:.2f} MB")
-    return 0
+    for p in problems:
+        print("ERROR " + p)
+    return 1 if problems else 0
 
 
 README = """# Kumo wallpapers
@@ -311,13 +364,18 @@ and open-source live wallpaper engine for Windows. Kumo lists these files in its
 and downloads them from this repository when someone adds one to their library.
 
 * `pictures/`: desktop art and photographs from open-source projects (KDE Plasma, Fedora, Pop!_OS,
-  COSMIC, Ubuntu), with previews in `thumbs/pictures/`.
-* `loops/`: short animated loops (videos).
-* `scenes/`: 3D scenes in Kumo's `.kumo` format.
+  COSMIC, Ubuntu).
+* `loops/`: short animated loops (videos). Six of them, the `loops/kumo/` files, are AI-generated:
+  made by the Kumo project with an AI video model, marked as AI-generated in their records, and
+  dedicated to the public domain (CC0 1.0).
+* `scenes/`: 3D scenes in Kumo's `.kumo` format, made by the Kumo project.
+* `thumbs/`: a 480x270 preview of every file. Previews are scaled and cropped copies; each one is
+  under the licence of the item it shows and carries that item's credit.
+* `tools/`: the scripts that made the loops, under the GPL-3.0-only like Kumo itself.
 
 Each folder has an `items.json` that names, for every file, its title, author, source, licence,
 the full credit line and what we changed (for example "resized from 5120x2880 to 3840x2160,
-converted from PNG to JPEG").
+converted from PNG to JPEG", or "none" for a file that is byte for byte the original).
 
 ## Licences
 
@@ -381,10 +439,11 @@ def credits(mirror):
             for i in sorted(groups[source], key=lambda x: field(x, "path", "file", "id")):
                 path = field(i, "path", "file", "mirrorPath", "mirror_path")
                 lic, lic_url = field(i, "license", "licence"), field(i, "licenseUrl", "licenceUrl", "license_url")
-                changes = field(i, "changes")
+                changes = re.sub(r"^changes:\s*", "", field(i, "changes"), flags=re.I).strip()
                 lines.append(f"* `{path}`: “{field(i, 'title')}” by {field(i, 'author', 'creator', 'artist')}, "
                              f"[source]({field(i, 'sourceUrl', 'source_url', 'sourcePage', 'page')}), "
-                             f"[{lic}]({lic_url})" + (f". {changes}" if changes else ""))
+                             f"[{lic}]({lic_url})" + ("" if changes.lower().rstrip(".") in ("", "none")
+                                                     else f". Changes: {changes}"))
             lines.append("")
     (mirror / "CREDITS.md").write_text("\n".join(lines), encoding="utf-8", newline="\n")
 
