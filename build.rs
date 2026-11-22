@@ -20,6 +20,32 @@ const SHADERS: [(&str, &str); 14] = [
     ("PSGlow", "ps_5_0"),
 ];
 
+/// HLSL source to bytecode; panics with the compiler's message.
+fn compile(src: &str, file: &str, entry: &str, target: &str) -> Vec<u8> {
+    let (f, e, t) = (format!("{file}\0"), format!("{entry}\0"), format!("{target}\0"));
+    let (mut code, mut errors) = (None, None);
+    let r = unsafe {
+        D3DCompile(
+            src.as_ptr().cast(),
+            src.len(),
+            PCSTR(f.as_ptr()),
+            None,
+            None,
+            PCSTR(e.as_ptr()),
+            PCSTR(t.as_ptr()),
+            D3DCOMPILE_OPTIMIZATION_LEVEL3,
+            0,
+            &mut code,
+            Some(&mut errors),
+        )
+    };
+    let bytes = |b: &windows::Win32::Graphics::Direct3D::ID3DBlob| unsafe { std::slice::from_raw_parts(b.GetBufferPointer() as *const u8, b.GetBufferSize()).to_vec() };
+    if r.is_err() {
+        panic!("{file} {entry}: {}", errors.map(|e| String::from_utf8_lossy(&bytes(&e)).into_owned()).unwrap_or_default());
+    }
+    bytes(&code.unwrap())
+}
+
 /// Shaders become bytecode at build time, so the exe does not need d3dcompiler_47.dll and starts
 /// without compiling anything.
 fn compile_shaders() {
@@ -27,28 +53,30 @@ fn compile_shaders() {
     let src = std::fs::read_to_string("src/shaders.hlsl").unwrap();
     let out = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
     for (entry, target) in SHADERS {
-        let (e, t) = (format!("{entry}\0"), format!("{target}\0"));
-        let (mut code, mut errors) = (None, None);
-        let r = unsafe {
-            D3DCompile(
-                src.as_ptr().cast(),
-                src.len(),
-                PCSTR(b"shaders.hlsl\0".as_ptr()),
-                None,
-                None,
-                PCSTR(e.as_ptr()),
-                PCSTR(t.as_ptr()),
-                D3DCOMPILE_OPTIMIZATION_LEVEL3,
-                0,
-                &mut code,
-                Some(&mut errors),
-            )
-        };
-        let bytes = |b: &windows::Win32::Graphics::Direct3D::ID3DBlob| unsafe { std::slice::from_raw_parts(b.GetBufferPointer() as *const u8, b.GetBufferSize()).to_vec() };
-        if r.is_err() {
-            panic!("{entry}: {}", errors.map(|e| String::from_utf8_lossy(&bytes(&e)).into_owned()).unwrap_or_default());
+        std::fs::write(out.join(format!("{entry}.cso")), compile(&src, "shaders.hlsl", entry, target)).unwrap();
+    }
+}
+
+/// The shader wallpapers: every src/fx/<id>.hlsl after src/fx/common.hlsl becomes fx-<id>.cso
+/// (see src/shader.rs). The cfg tells the shared library code that this build can draw them;
+/// the Mac crate cannot and leaves them out.
+fn compile_effects() {
+    println!("cargo::rustc-check-cfg=cfg(shader_wallpapers)");
+    println!("cargo::rustc-cfg=shader_wallpapers");
+    println!("cargo:rerun-if-changed=src/fx");
+    let common = std::fs::read_to_string("src/fx/common.hlsl").unwrap();
+    let out = std::path::PathBuf::from(std::env::var("OUT_DIR").unwrap());
+    let mut files: Vec<_> = std::fs::read_dir("src/fx").unwrap().flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "hlsl")).collect();
+    files.sort();
+    for path in files {
+        println!("cargo:rerun-if-changed={}", path.display());
+        let name = path.file_name().unwrap().to_string_lossy().into_owned();
+        if name == "common.hlsl" {
+            continue;
         }
-        std::fs::write(out.join(format!("{entry}.cso")), bytes(&code.unwrap())).unwrap();
+        let src = format!("{common}\n#line 1 \"{name}\"\n{}", std::fs::read_to_string(&path).unwrap());
+        let id = name.trim_end_matches(".hlsl");
+        std::fs::write(out.join(format!("fx-{id}.cso")), compile(&src, &name, "main", "ps_5_0")).unwrap();
     }
 }
 
@@ -111,6 +139,7 @@ fn main() {
     println!("cargo:rustc-link-arg-bins=delayimp.lib");
 
     compile_shaders();
+    compile_effects();
     embed_icon();
 
     let config = slint_build::CompilerConfiguration::new()

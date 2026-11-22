@@ -2,13 +2,14 @@
 //! actually on screen, and the frame loop.
 //!
 //! Memory rules: a wallpaper that no screen shows is unloaded immediately; screens with the same
-//! wallpaper and aspect ratio share one rendered frame; a still image is drawn once and its
-//! texture freed, because the screen keeps showing it; when nothing needs drawing the render
-//! targets are freed and the loop sleeps.
+//! wallpaper and aspect ratio share one rendered frame (scenes and animations); a still image is
+//! drawn once and its texture freed, because the screen keeps showing it; when nothing needs
+//! drawing the render targets are freed and the loop sleeps.
 
 use crate::config::{self, Config, PowerRule, TimeMode};
 use crate::library::{self, Kind};
 use crate::render::{fit_uv, Post, Renderer};
+use crate::shader::Animation;
 use crate::world::World;
 use crate::{desktop, gfx, log, scene, tray, watch, Ev};
 use std::time::{Duration, Instant};
@@ -29,6 +30,8 @@ enum Content {
     /// `max` is the screen size the picture was scaled for, `srv` only exists while drawing
     Image { path: std::path::PathBuf, srv: Option<ID3D11ShaderResourceView>, w: u32, h: u32, max: (u32, u32) },
     Video { video: Box<crate::video::Video> },
+    /// a shader wallpaper: its pixel shader, constant buffer and clock
+    Shader { fx: Animation },
 }
 
 pub struct Player {
@@ -407,7 +410,8 @@ impl App {
             match &mut p.content {
                 Content::Scene { renderer, .. } => renderer.release(),
                 Content::Image { srv, .. } => *srv = None,
-                Content::Video { .. } => {}
+                // an animation holds no textures, its target went with the others above
+                Content::Video { .. } | Content::Shader { .. } => {}
             }
         }
         self.gpu.trim();
@@ -432,12 +436,14 @@ impl App {
         self.released
     }
 
-    fn target(&mut self, w: u32, h: u32) -> Option<usize> {
-        if let Some(i) = self.targets.iter().position(|(t, _)| t.w == w && t.h == h) {
+    /// A render target of this size, kept while frames use it. Scenes need depth; animations
+    /// draw into flat 10-bit ones.
+    fn target(&mut self, w: u32, h: u32, flat: bool) -> Option<usize> {
+        if let Some(i) = self.targets.iter().position(|(t, _)| t.w == w && t.h == h && t.is_flat() == flat) {
             self.targets[i].1 = true;
             return Some(i);
         }
-        let t = gfx::Target::new(&self.gpu, w, h).ok()?;
+        let t = if flat { gfx::Target::flat(&self.gpu, w, h) } else { gfx::Target::new(&self.gpu, w, h) }.ok()?;
         self.targets.push((t, true));
         Some(self.targets.len() - 1)
     }
@@ -485,6 +491,15 @@ impl App {
                 continue;
             }
             let mut drawn = mine.clone();
+            // screens with the same aspect ratio share one rendered frame, made for the largest
+            let sizes: Vec<(u32, u32)> = mine.iter().map(|&i| (self.outputs[i].swap.w, self.outputs[i].swap.h)).collect();
+            let groups: Vec<(Vec<usize>, u32, u32)> = aspect_groups(&sizes)
+                .into_iter()
+                .map(|g| {
+                    let (w, h) = g.iter().fold((1, 1), |(w, h), &b| (w.max(sizes[b].0), h.max(sizes[b].1)));
+                    (g.iter().map(|&b| mine[b]).collect(), w, h)
+                })
+                .collect();
             match &mut p.content {
                 Content::Scene { renderer, world } => {
                     let s = self.scene_settings(&p.id);
@@ -496,30 +511,35 @@ impl App {
                     if renderer.prepare(&self.gpu, world).is_err() {
                         continue;
                     }
-                    // screens with the same aspect ratio share one rendered frame
-                    let mut done = vec![false; mine.len()];
-                    for a in 0..mine.len() {
-                        if done[a] {
-                            continue;
-                        }
-                        let aspect = |i: usize| self.outputs[i].swap.w as f32 / self.outputs[i].swap.h as f32;
-                        let group: Vec<usize> = (a..mine.len()).filter(|&b| !done[b] && (aspect(mine[b]) - aspect(mine[a])).abs() < 0.01).collect();
-                        let gw = group.iter().map(|&b| self.outputs[mine[b]].swap.w).max().unwrap_or(1);
-                        let gh = group.iter().map(|&b| self.outputs[mine[b]].swap.h).max().unwrap_or(1);
-                        let rw = ((gw as f32 * self.cfg.quality).round() as u32).max(16);
-                        let rh = ((gh as f32 * self.cfg.quality).round() as u32).max(16);
-                        let Some(ti) = self.target(rw, rh) else {
-                            drawn.retain(|i| !group.iter().any(|&b| mine[b] == *i));
-                            group.iter().for_each(|&b| done[b] = true);
+                    for (group, gw, gh) in &groups {
+                        let rw = ((*gw as f32 * self.cfg.quality).round() as u32).max(16);
+                        let rh = ((*gh as f32 * self.cfg.quality).round() as u32).max(16);
+                        let Some(ti) = self.target(rw, rh, false) else {
+                            drawn.retain(|i| !group.contains(i));
                             continue;
                         };
-                        let view = world.view(gw as f32 / gh as f32, s.parallax);
+                        let view = world.view(*gw as f32 / *gh as f32, s.parallax);
                         renderer.render(&self.gpu, world, &view, &self.targets[ti].0);
-                        for &b in &group {
-                            let o = &self.outputs[mine[b]];
+                        for &i in group {
+                            let o = &self.outputs[i];
                             let t = &self.targets[ti].0;
-                            self.post.draw(&self.gpu, &t.srv, (t.w, t.h), &o.swap.rtv, (o.swap.w, o.swap.h), [1.0, 1.0, 0.0, 0.0], self.cfg.fxaa, SCENE_VIGNETTE);
-                            done[b] = true;
+                            self.post.draw(&self.gpu, &t.srv, (t.w, t.h), &o.swap.rtv, (o.swap.w, o.swap.h), [1.0, 1.0, 0.0, 0.0], self.cfg.fxaa, SCENE_VIGNETTE, false);
+                        }
+                    }
+                }
+                Content::Shader { fx } => {
+                    fx.update(dt, &self.scene_settings(&p.id));
+                    for (group, gw, gh) in &groups {
+                        let (rw, rh) = fx.size_for(*gw, *gh, self.cfg.quality);
+                        let Some(ti) = self.target(rw, rh, true) else {
+                            drawn.retain(|i| !group.contains(i));
+                            continue;
+                        };
+                        fx.render(&self.gpu, &self.targets[ti].0);
+                        for &i in group {
+                            let o = &self.outputs[i];
+                            let t = &self.targets[ti].0;
+                            self.post.draw(&self.gpu, &t.srv, (t.w, t.h), &o.swap.rtv, (o.swap.w, o.swap.h), [1.0, 1.0, 0.0, 0.0], false, 0.0, true);
                         }
                     }
                 }
@@ -537,7 +557,7 @@ impl App {
                     for &i in &mine {
                         let o = &self.outputs[i];
                         let uv = fit_uv(fit, *w, *h, o.swap.w, o.swap.h);
-                        self.post.draw(&self.gpu, srv.as_ref().unwrap(), (*w, *h), &o.swap.rtv, (o.swap.w, o.swap.h), uv, false, 0.0);
+                        self.post.draw(&self.gpu, srv.as_ref().unwrap(), (*w, *h), &o.swap.rtv, (o.swap.w, o.swap.h), uv, false, 0.0, false);
                     }
                 }
                 Content::Video { video } => {
@@ -682,8 +702,10 @@ impl App {
                 }
                 if c - cmd::TIME == 5 {
                     for p in &mut self.players {
-                        if let Content::Scene { world, .. } = &mut p.content {
-                            world.reset_clock();
+                        match &mut p.content {
+                            Content::Scene { world, .. } => world.reset_clock(),
+                            Content::Shader { fx } => fx.clock.reset_lapse(),
+                            _ => {}
                         }
                     }
                 }
@@ -717,9 +739,30 @@ fn load(gpu: &gfx::Gpu, mf: &mut Option<crate::video::Mf>, item: &library::Item,
             let v = crate::video::Video::new(mf.as_ref().unwrap(), gpu, &item.path()).map_err(|e| e.message())?;
             Content::Video { video: Box::new(v) }
         }
+        Kind::Shader => {
+            let effect = crate::shader::effect(&item.id).ok_or("this animation is not part of this version of Kumo")?;
+            Content::Shader { fx: Animation::new(gpu, effect).map_err(|e| e.message())? }
+        }
     };
     log(&format!("kumo: loaded '{}' ({:?})", item.title, item.kind));
     Ok(Player { id: item.id.clone(), content, failures: 0 })
+}
+
+/// Screens that can share one rendered frame because they have the same shape, as indices into
+/// `sizes` (width, height), in order of first appearance.
+fn aspect_groups(sizes: &[(u32, u32)]) -> Vec<Vec<usize>> {
+    let aspect = |i: usize| sizes[i].0 as f32 / sizes[i].1.max(1) as f32;
+    let mut done = vec![false; sizes.len()];
+    let mut groups = Vec::new();
+    for a in 0..sizes.len() {
+        if done[a] {
+            continue;
+        }
+        let group: Vec<usize> = (a..sizes.len()).filter(|&b| !done[b] && (aspect(b) - aspect(a)).abs() < 0.01).collect();
+        group.iter().for_each(|&b| done[b] = true);
+        groups.push(group);
+    }
+    groups
 }
 
 fn picture(gpu: &gfx::Gpu, path: &std::path::Path, (max_w, max_h): (u32, u32)) -> Result<(ID3D11ShaderResourceView, u32, u32), String> {
@@ -850,5 +893,19 @@ pub fn run(app: &mut App) {
             next = now + app.interval();
         }
         app.frame(dt);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn screens_of_the_same_shape_share_a_frame() {
+        // 1440p and 1080p are both 16:9, the portrait screen and the 16:10 one are not
+        let sizes = [(2560, 1440), (1200, 1920), (1920, 1080), (1920, 1200), (1080, 1920)];
+        assert_eq!(aspect_groups(&sizes), vec![vec![0, 2], vec![1], vec![3], vec![4]]);
+        assert_eq!(aspect_groups(&[(1920, 1080)]), vec![vec![0]]);
+        assert!(aspect_groups(&[]).is_empty());
     }
 }

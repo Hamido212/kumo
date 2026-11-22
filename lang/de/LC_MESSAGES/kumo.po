@@ -153,8 +153,26 @@ msgstr "Quellenangabe"
 msgid "Changes show on the desktop right away."
 msgstr "Änderungen werden sofort auf dem Desktop übernommen."
 
+msgid "Animation speed"
+msgstr "Tempo der Animation"
+
+msgid "Colors"
+msgstr "Farben"
+
+msgid "Classic"
+msgstr "Klassisch"
+
+msgid "Warm"
+msgstr "Warm"
+
+msgid "Cool"
+msgstr "Kühl"
+
 msgid "Time of day"
 msgstr "Tageszeit"
+
+msgid "Follows your clock: a little warmer in the evening, darker at night."
+msgstr "Folgt deiner Uhr: abends etwas wärmer, nachts dunkler."
 
 msgid "Follows your clock: sunrise, sunset, stars at night."
 msgstr "Folgt deiner Uhr: Sonnenaufgang, Abendrot, nachts Sterne."

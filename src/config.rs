@@ -17,7 +17,7 @@ pub enum TimeMode {
     Lapse,
 }
 
-/// Settings of one 3D scene wallpaper.
+/// Settings of one 3D scene or shader wallpaper (an animation). Both follow the time of day.
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(default)]
 pub struct Settings {
@@ -27,11 +27,25 @@ pub struct Settings {
     pub rotate: f32,
     pub petals: f32,
     pub parallax: bool,
+    /// animations: how fast they move, 1 as designed (left out of the file while it is 1)
+    #[serde(skip_serializing_if = "is_one")]
+    pub speed: f32,
+    /// animations: colour style 0 (classic), 1 (warm) or 2 (cool)
+    #[serde(skip_serializing_if = "is_zero")]
+    pub style: u32,
+}
+
+fn is_one(v: &f32) -> bool {
+    *v == 1.0
+}
+
+fn is_zero(v: &u32) -> bool {
+    *v == 0
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { time: TimeMode::Real, hour: 16.5, lapse: 600.0, rotate: 1.0, petals: 1.0, parallax: false }
+        Settings { time: TimeMode::Real, hour: 16.5, lapse: 600.0, rotate: 1.0, petals: 1.0, parallax: false, speed: 1.0, style: 0 }
     }
 }
 
@@ -52,10 +66,15 @@ impl Settings {
             "rotate" => self.rotate = num(1.0).clamp(0.0, 10.0),
             "petals" => self.petals = num(1.0).clamp(0.0, 2.0),
             "parallax" => self.parallax = is_on(v),
+            "speed" => self.speed = num(1.0).clamp(0.1, 4.0),
+            "style" => self.style = (num(0.0).max(0.0) as u32).min(STYLES - 1),
             _ => {}
         }
     }
 }
+
+/// Colour styles of an animation.
+pub const STYLES: u32 = 3;
 
 /// How a picture or video fills a screen of a different shape.
 #[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
@@ -197,6 +216,10 @@ impl Config {
         if self.wallpaper.is_empty() {
             self.wallpaper = BUILTIN_SCENE.into();
         }
+        for s in self.scenes.values_mut() {
+            s.speed = if s.speed.is_finite() { s.speed.clamp(0.1, 4.0) } else { 1.0 };
+            s.style = s.style.min(STYLES - 1);
+        }
         self
     }
 
@@ -279,6 +302,35 @@ mod tests {
         assert_eq!(back.scene("x").petals, 0.5);
         assert_eq!(back.scene("x").time, TimeMode::Lapse);
         assert_eq!(back.on_battery, PowerRule::Pause);
+    }
+
+    #[test]
+    fn animation_settings_round_trip_and_stay_out_of_old_files() {
+        let mut c = Config::default();
+        c.scene_mut("pagoda").petals = 0.5;
+        let s = c.scene_mut("neon-horizon");
+        s.speed = 1.5;
+        s.style = 2;
+        s.time = TimeMode::Fixed;
+        let text = serde_json::to_string(&c).unwrap();
+        let back: Config = serde_json::from_str(&text).unwrap();
+        assert_eq!((back.scene("neon-horizon").speed, back.scene("neon-horizon").style), (1.5, 2));
+        assert_eq!(back.scene("neon-horizon").time, TimeMode::Fixed);
+        // a scene's settings are written as before: no speed or style while they are the defaults
+        let pagoda = serde_json::to_string(&c.scene("pagoda")).unwrap();
+        assert!(!pagoda.contains("speed") && !pagoda.contains("style"), "{pagoda}");
+        // files from before animations load with the defaults
+        let old: Config = serde_json::from_str(r#"{"scenes": {"pagoda": {"time": "lapse", "petals": 1.6}}}"#).unwrap();
+        assert_eq!((old.scene("pagoda").speed, old.scene("pagoda").style, old.scene("pagoda").petals), (1.0, 0, 1.6));
+        // nonsense from a hand-edited file is tamed
+        let odd = serde_json::from_str::<Config>(r#"{"scenes": {"x": {"speed": 900, "style": 7}}}"#).unwrap().sanitized();
+        assert_eq!((odd.scene("x").speed, odd.scene("x").style), (4.0, 2));
+        let mut s = Settings::default();
+        s.set("speed", "0.5");
+        s.set("style", "1");
+        assert_eq!((s.speed, s.style), (0.5, 1));
+        s.set("style", "-3");
+        assert_eq!(s.style, 0);
     }
 
     #[test]

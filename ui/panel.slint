@@ -8,7 +8,7 @@ export struct TileData {
     id: string,
     title: string,
     meta: string,
-    kind: int, // 0 scene, 1 video, 2 image
+    kind: int, // 0 scene, 1 video, 2 image, 3 animation (shader)
     thumb: image,
     has-thumb: bool,
     active: bool,
@@ -91,6 +91,9 @@ export global State {
     in-out property <bool> parallax;
     in-out property <int> fit-index;
     in-out property <int> speed-index: 1;
+    // animations: speed (0.5, 1, 1.5, 2) and colour style (classic, warm, cool)
+    in-out property <int> motion-index: 1;
+    in-out property <int> style-index;
     // performance
     in-out property <int> fps-index: 1;
     in-out property <int> quality-index: 0;
@@ -258,9 +261,10 @@ component Thumb inherits Rectangle {
     clip: true;
     background: root.kind == 1 ? @linear-gradient(180deg, #24384A 0%, #3E6077 100%)
         : root.kind == 2 ? @linear-gradient(180deg, #3B4A3A 0%, #62775A 100%)
+        : root.kind == 3 ? @linear-gradient(180deg, #16203A 0%, #2E5A62 100%)
         : @linear-gradient(180deg, #3A3550 0%, #6B4A6E 100%);
     if !root.has-image: Icon {
-        text: root.kind == 1 ? "\u{E714}" : root.kind == 2 ? "\u{E91B}" : "\u{E753}";
+        text: root.kind == 1 ? "\u{E714}" : root.kind == 2 ? "\u{E91B}" : root.kind == 3 ? "\u{E790}" : "\u{E753}";
         font-size: 24px;
         color: #ffffffb0;
     }
@@ -353,7 +357,7 @@ component Tile inherits Rectangle {
                 HorizontalLayout {
                     spacing: 6px;
                     Icon {
-                        text: root.data.kind == 1 ? "\u{E714}" : root.data.kind == 2 ? "\u{E91B}" : "\u{E753}";
+                        text: root.data.kind == 1 ? "\u{E714}" : root.data.kind == 2 ? "\u{E91B}" : root.data.kind == 3 ? "\u{E790}" : "\u{E753}";
                         font-size: 12px;
                         color: Theme.text2;
                         width: 12px;
@@ -1340,12 +1344,37 @@ component DetailPage inherits Rectangle {
                 }
             }
             Rectangle { height: 4px; }
-            if State.detail.kind == 0: VerticalLayout {
+            // 3D scenes and animations: both follow the time of day
+            if State.detail.kind == 0 || State.detail.kind == 3: VerticalLayout {
                 spacing: 4px;
+                if State.detail.kind == 3: Card {
+                    icon: "\u{EC4A}";
+                    title: @tr("Animation speed");
+                    VerticalLayout {
+                        alignment: center;
+                        Segmented {
+                            items: ["0.5×", "1×", "1.5×", "2×"];
+                            selected <=> State.motion-index;
+                            picked => { State.scene-changed(); }
+                        }
+                    }
+                }
+                if State.detail.kind == 3: Card {
+                    icon: "\u{E790}";
+                    title: @tr("Colors");
+                    VerticalLayout {
+                        alignment: center;
+                        Segmented {
+                            items: [@tr("Classic"), @tr("Warm"), @tr("Cool")];
+                            selected <=> State.style-index;
+                            picked => { State.scene-changed(); }
+                        }
+                    }
+                }
                 Card {
                     icon: "\u{E823}";
                     title: @tr("Time of day");
-                    description: State.time-mode == 0 ? @tr("Follows your clock: sunrise, sunset, stars at night.") : "";
+                    description: State.time-mode != 0 ? "" : State.detail.kind == 3 ? @tr("Follows your clock: a little warmer in the evening, darker at night.") : @tr("Follows your clock: sunrise, sunset, stars at night.");
                     VerticalLayout {
                         alignment: center;
                         Segmented {
@@ -1388,7 +1417,7 @@ component DetailPage inherits Rectangle {
                         }
                     }
                 }
-                Card {
+                if State.detail.kind == 0: Card {
                     icon: "\u{E7AD}";
                     title: @tr("Camera orbit");
                     description: @tr("0 = stands still");
@@ -1410,7 +1439,7 @@ component DetailPage inherits Rectangle {
                         }
                     }
                 }
-                Card {
+                if State.detail.kind == 0: Card {
                     icon: "\u{E8BE}";
                     title: @tr("Cherry blossoms");
                     VerticalLayout {
@@ -1422,7 +1451,7 @@ component DetailPage inherits Rectangle {
                         }
                     }
                 }
-                Card {
+                if State.detail.kind == 0: Card {
                     icon: "\u{E962}";
                     title: @tr("Parallax");
                     description: @tr("The camera follows the mouse a little.");
@@ -1441,7 +1470,7 @@ component DetailPage inherits Rectangle {
                     }
                 }
             }
-            if State.detail.kind != 0: VerticalLayout {
+            if State.detail.kind == 1 || State.detail.kind == 2: VerticalLayout {
                 spacing: 4px;
                 Card {
                     icon: "\u{E740}";

@@ -24,6 +24,7 @@ mod panel;
 mod render;
 mod scene;
 mod setup;
+mod shader;
 mod tray;
 mod video;
 mod watch;
@@ -194,6 +195,8 @@ fn start_panel(args: PCWSTR) {
 struct Args {
     window: Option<(u32, u32)>,
     shot: Option<String>,
+    /// `--shot` writes a 480x270 library thumbnail (JPEG) of the frame
+    thumb: bool,
     size: (u32, u32),
     warmup: f32,
     stats: bool,
@@ -203,7 +206,7 @@ struct Args {
 }
 
 fn parse_args() -> Args {
-    let mut a = Args { window: None, shot: None, size: (1280, 720), warmup: 6.0, stats: false, scene: None, overrides: Vec::new(), mode: None };
+    let mut a = Args { window: None, shot: None, thumb: false, size: (1280, 720), warmup: 6.0, stats: false, scene: None, overrides: Vec::new(), mode: None };
     let mut it = std::env::args().skip(1);
     let size = |s: Option<String>| {
         s.and_then(|s| s.split_once('x').and_then(|(w, h)| Some((w.parse().ok()?, h.parse().ok()?)))).unwrap_or((1280, 720))
@@ -218,6 +221,7 @@ fn parse_args() -> Args {
                 }
             }
             "--shot" => a.shot = it.next(),
+            "--thumb" => a.thumb = true,
             "--warmup" => a.warmup = it.next().and_then(|v| v.parse().ok()).unwrap_or(6.0),
             "--stats" => a.stats = true,
             "--log" => {
@@ -280,8 +284,21 @@ fn write_bmp(path: &str, w: u32, h: u32, rgba: &[u8]) -> std::io::Result<()> {
     std::fs::write(path, out)
 }
 
+/// Saves a rendered frame: a 480x270 library thumbnail with `thumb`, else a JPEG or a BMP by the
+/// file name.
+fn save_shot(path: &str, w: u32, h: u32, rgba: &[u8], thumb: bool) -> Result<(), String> {
+    let lower = path.to_ascii_lowercase();
+    if thumb || lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
+        let bgra: Vec<u8> = rgba.chunks_exact(4).flat_map(|p| [p[2], p[1], p[0], 255]).collect();
+        let file = std::path::Path::new(path);
+        let saved = if thumb { media::thumbnail_from_bgra(&bgra, w, h, file) } else { media::save_jpeg(&bgra, w, h, file) };
+        return saved.map_err(|x| x.message());
+    }
+    write_bmp(path, w, h, rgba).map_err(|x| x.to_string())
+}
+
 /// Renders one frame of a scene offscreen and saves it (previews, visual tests).
-fn shot(path: &str, (w, h): (u32, u32), warmup: f32, cfg: &Config, s: &config::Settings, bytes: &[u8]) -> Result<(), String> {
+fn shot(path: &str, (w, h): (u32, u32), warmup: f32, cfg: &Config, s: &config::Settings, bytes: &[u8], thumb: bool) -> Result<(), String> {
     let e = |x: windows::core::Error| x.message();
     let gpu = gfx::Gpu::new().map_err(e)?;
     let post = render::Post::new(&gpu).map_err(e)?;
@@ -296,11 +313,31 @@ fn shot(path: &str, (w, h): (u32, u32), warmup: f32, cfg: &Config, s: &config::S
     let view = world.view(w as f32 / h as f32, false);
     renderer.render(&gpu, &world, &view, &src);
     let dst = gfx::Target::new(&gpu, w, h).map_err(e)?;
-    post.draw(&gpu, &src.srv, (src.w, src.h), &dst.rtv, (w, h), [1.0, 1.0, 0.0, 0.0], cfg.fxaa, 0.28);
+    post.draw(&gpu, &src.srv, (src.w, src.h), &dst.rtv, (w, h), [1.0, 1.0, 0.0, 0.0], cfg.fxaa, 0.28, false);
     let rgba = dst.read_rgba(&gpu).map_err(e)?;
-    write_bmp(path, w, h, &rgba).map_err(|x| x.to_string())?;
+    save_shot(path, w, h, &rgba, thumb)?;
     let (ws, private) = engine::memory();
     println!("saved {path} ({w}x{h}, hour {:.2}) | working set {ws:.0} MB | private {private:.0} MB", world.hour);
+    Ok(())
+}
+
+/// Renders a shader wallpaper as it looks `seconds` into its animation and saves it.
+fn shot_animation(path: &str, (w, h): (u32, u32), seconds: f32, cfg: &Config, s: &config::Settings, effect: &'static shader::Effect, thumb: bool) -> Result<(), String> {
+    let e = |x: windows::core::Error| x.message();
+    let gpu = gfx::Gpu::new().map_err(e)?;
+    let post = render::Post::new(&gpu).map_err(e)?;
+    let mut fx = shader::Animation::new(&gpu, effect).map_err(e)?;
+    fx.update(0.0, s);
+    fx.clock.t = seconds as f64 * s.speed as f64;
+    let (rw, rh) = fx.size_for(w, h, cfg.quality);
+    let src = gfx::Target::flat(&gpu, rw, rh).map_err(e)?;
+    fx.render(&gpu, &src);
+    let dst = gfx::Target::new(&gpu, w, h).map_err(e)?;
+    post.draw(&gpu, &src.srv, (rw, rh), &dst.rtv, (w, h), [1.0, 1.0, 0.0, 0.0], false, 0.0, true);
+    let rgba = dst.read_rgba(&gpu).map_err(e)?;
+    save_shot(path, w, h, &rgba, thumb)?;
+    let (ws, private) = engine::memory();
+    println!("saved {path} ({w}x{h}, drawn at {rw}x{rh}, {seconds:.1} s, hour {:.2}) | working set {ws:.0} MB | private {private:.0} MB", fx.clock.hour);
     Ok(())
 }
 
@@ -368,15 +405,27 @@ fn main() {
     }
 
     if let Some(path) = &args.shot {
-        let bytes = match &args.scene {
-            Some(p) => std::fs::read(p).map(std::borrow::Cow::Owned).unwrap_or_else(|e| fail(&format!("{p}: {e}"))),
-            None => std::borrow::Cow::Borrowed(library::PAGODA_SCENE),
-        };
-        let mut s = cfg.scene(config::BUILTIN_SCENE);
+        // --scene: the id of a built-in scene or animation, or a .kumo file
+        let builtin = args.scene.as_deref().and_then(library::builtin_item);
+        let mut s = cfg.scene(builtin.as_ref().map_or(config::BUILTIN_SCENE, |b| b.id.as_str()));
         for (k, v) in &args.overrides {
             s.set(k, v);
         }
-        if let Err(e) = shot(path, args.size, args.warmup, &cfg, &s, &bytes) {
+        let done = match &builtin {
+            Some(item) if item.kind == library::Kind::Shader => match shader::effect(&item.id) {
+                Some(effect) => shot_animation(path, args.size, args.warmup, &cfg, &s, effect, args.thumb),
+                None => Err(format!("{}: no shader", item.id)),
+            },
+            Some(item) => item.scene_bytes().map_err(|e| e.to_string()).and_then(|bytes| shot(path, args.size, args.warmup, &cfg, &s, &bytes, args.thumb)),
+            None => {
+                let bytes = match &args.scene {
+                    Some(p) => std::fs::read(p).map(std::borrow::Cow::Owned).unwrap_or_else(|e| fail(&format!("{p}: {e}"))),
+                    None => std::borrow::Cow::Borrowed(library::PAGODA_SCENE),
+                };
+                shot(path, args.size, args.warmup, &cfg, &s, &bytes, args.thumb)
+            }
+        };
+        if let Err(e) = done {
             eprintln!("kumo: {e}");
             std::process::exit(1);
         }

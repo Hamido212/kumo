@@ -247,6 +247,8 @@ impl Engine {
                 attach_layer(&window, &layer)?;
                 None
             }
+            // the Windows version's shader wallpapers: the Mac library does not list them
+            Kind::Shader => return Err("animations are not drawn on the Mac yet".into()),
         };
         window.orderFrontRegardless();
         Ok(Screen { window, surface, monitor: monitor.to_string(), wallpaper: wallpaper.to_string() })

@@ -2,6 +2,9 @@
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    // the shared library.rs lists shader wallpapers only where they are compiled (the Windows
+    // build sets this cfg); this renderer has none yet, so the Mac never lists them
+    println!("cargo::rustc-check-cfg=cfg(shader_wallpapers)");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("macos") {
         return;
     }

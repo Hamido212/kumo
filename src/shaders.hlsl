@@ -259,6 +259,7 @@ float4 PSSky(FsOut i) : SV_Target {
 cbuffer Post : register(b3) {
   float4 postInfo;     // xy: 1 / source size, z: FXAA on, w: vignette strength
   float4 postUv;       // xy: scale, zw: offset (output uv -> source uv, for cover / contain)
+  float4 postExtra;    // x: dither on
 };
 
 float3 fetch(float2 uv) { return postSrc.SampleLevel(linearSmp, uv, 0).rgb; }
@@ -292,6 +293,16 @@ float4 PSPost(FsOut i) : SV_Target {
   float2 q = (screen - float2(0.5, 0.45)) / float2(0.5, 0.45);
   float v = saturate((length(q) / 1.57918 - 0.55) / 0.45) * postInfo.w;
   color = lerp(color, float3(6.0, 8.0, 20.0) / 255.0, v);
+  if (postExtra.x > 0.5) {
+    // triangular noise of +-1 step of the 8-bit screen, fixed per pixel (an integer hash)
+    uint2 c = uint2(i.pos.xy);
+    uint a = (c.x * 1973u + c.y * 9277u) ^ 0x5bd1e995u;
+    a = (a ^ (a >> 15)) * 0x2c1b3c6du;
+    a = (a ^ (a >> 12)) * 0x297a2d39u;
+    a ^= a >> 15;
+    float n = float(a & 0xffffu) / 65535.0 + float(a >> 16) / 65535.0 - 1.0;
+    color += n / 255.0;
+  }
   return float4(color, 1.0);
 }
 

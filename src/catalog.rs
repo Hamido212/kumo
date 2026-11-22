@@ -47,6 +47,8 @@ pub fn max_bytes(kind: Kind) -> u64 {
         Kind::Image => MAX_IMAGE,
         Kind::Video => MAX_VIDEO,
         Kind::Scene => MAX_SCENE,
+        // animations are code: never downloaded (the kind cannot even be read from a catalogue)
+        Kind::Shader => 0,
     }
 }
 

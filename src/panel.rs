@@ -175,12 +175,14 @@ fn kind_index(k: Kind) -> i32 {
         Kind::Scene => 0,
         Kind::Video => 1,
         Kind::Image => 2,
+        Kind::Shader => 3,
     }
 }
 
 fn meta(tr: &Tr, item: &Item) -> String {
     let size = || std::fs::metadata(item.path()).map(|m| size_text(m.len(), tr.0)).unwrap_or_default();
     match item.kind {
+        Kind::Shader => format!("Animation · {}", tr.t("Eingebaut", "Built-in")),
         Kind::Scene if item.builtin => format!("{} · {}", tr.t("3D-Szene", "3D scene"), tr.t("Eingebaut", "Built-in")),
         Kind::Scene => format!("{} · {}", tr.t("3D-Szene", "3D scene"), size()),
         Kind::Video => format!("Video · {}", size()),
@@ -361,6 +363,7 @@ fn fill_detail(app: &PanelWindow, ctx: &mut Ctx) {
             Kind::Scene => tr.t("3D-Szene (.kumo)", "3D scene (.kumo)"),
             Kind::Video => "Video",
             Kind::Image => tr.t("Bild", "Picture"),
+            Kind::Shader => tr.t("Animation (Shader)", "Animation (shader)"),
         }
         .into(),
     );
@@ -370,6 +373,7 @@ fn fill_detail(app: &PanelWindow, ctx: &mut Ctx) {
             Kind::Scene => tr.t("ca. 55–75 MB gesamt", "about 55–75 MB in total"),
             Kind::Video => tr.t("ca. +30–60 MB", "about +30–60 MB"),
             Kind::Image => tr.t("ca. 25 MB gesamt, 0 % CPU", "about 25 MB in total, 0 % CPU"),
+            Kind::Shader => tr.t("ca. 35 MB gesamt", "about 35 MB in total"),
         }
         .into(),
     );
@@ -402,6 +406,8 @@ fn fill_detail(app: &PanelWindow, ctx: &mut Ctx) {
     st.set_rotate(s.rotate);
     st.set_petals_index(PETALS.iter().position(|&p| (p - s.petals).abs() < 0.05).unwrap_or(2) as i32);
     st.set_parallax(s.parallax);
+    st.set_motion_index(SPEED.iter().position(|&v| (v - s.speed).abs() < 0.01).unwrap_or(1) as i32);
+    st.set_style_index(s.style as i32);
     let media = ctx.cfg.media(&item.id);
     st.set_fit_index(match media.fit {
         Fit::Cover => 0,
@@ -1306,6 +1312,8 @@ pub fn run_panel() {
             s.rotate = st.get_rotate();
             s.petals = PETALS[st.get_petals_index().clamp(0, 3) as usize];
             s.parallax = st.get_parallax();
+            s.speed = SPEED[st.get_motion_index().clamp(0, 3) as usize];
+            s.style = st.get_style_index().clamp(0, config::STYLES as i32 - 1) as u32;
         })
     });
 
