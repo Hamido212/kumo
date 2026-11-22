@@ -24,11 +24,14 @@ const HOSTS: &[&str] = &[
     "cdn.esahubble.org",
     "cdn.esawebb.org",
     "cdn.eso.org",
-    // our own file mirror, the public repository Hamido212/kumo-wallpapers on GitHub; the host
-    // serves every public repository, so the catalogue tool only lists files under our path, and
-    // every mirrored item carries its sha256
-    "raw.githubusercontent.com",
+    // our own file mirror, the public repository Hamido212/kumo-wallpapers on GitHub
+    MIRROR_HOST,
 ];
+
+/// GitHub's raw host serves every public repository, so only our repository's path counts
+/// (`check_url`), and a file from there must come with its checksum (`usable`).
+const MIRROR_HOST: &str = "raw.githubusercontent.com";
+const MIRROR_PATH: &str = "/Hamido212/kumo-wallpapers/main/";
 
 pub const MAX_CATALOG: usize = 4 << 20;
 pub const MAX_THUMB: u64 = 8 << 20;
@@ -122,6 +125,9 @@ impl std::fmt::Display for Url {
 /// A URL Kumo may fetch: https on an allowed host (or loopback http in development).
 pub fn check_url(s: &str) -> Result<Url, String> {
     let url = Url::parse(s).ok_or_else(|| format!("not a valid address: {s}"))?;
+    if url.https && url.host == MIRROR_HOST && !url.path.starts_with(MIRROR_PATH) {
+        return Err(format!("{}{} is not our mirror", url.host, url.path));
+    }
     if (url.https && host_allowed(&url.host)) || (DEV && !url.https && url.loopback()) {
         Ok(url)
     } else {
@@ -218,6 +224,7 @@ pub fn usable(e: &Entry) -> bool {
         && e.bytes <= max_bytes(e.kind)
         && (e.kind != Kind::Image || e.width as u64 * e.height as u64 <= MAX_PIXELS)
         && (e.sha256.is_empty() || (e.sha256.len() == 64 && e.sha256.bytes().all(|b| b.is_ascii_hexdigit())))
+        && !(e.sha256.is_empty() && Url::parse(&e.file).is_some_and(|u| u.host == MIRROR_HOST))
 }
 
 /// Reads a catalogue. A wrong version is an error; a single bad, revoked or unknown entry is
@@ -794,9 +801,25 @@ mod tests {
             "https://github.com/Hamido212/kumo-wallpapers/raw/main/a.jpg",
             "https://objects.githubusercontent.com/a.jpg",
             "https://media.githubusercontent.com/media/Hamido212/kumo-wallpapers/main/a.jpg",
+            // the same host serves everyone's repositories and every branch
+            "https://raw.githubusercontent.com/someone/else/main/a.jpg",
+            "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers-evil/main/a.jpg",
+            "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/other-branch/a.jpg",
+            "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main",
         ] {
             assert!(check_url(bad).is_err(), "{bad}");
         }
+        // a mirrored file without its checksum is not offered
+        let mirror = |sum: &str| Entry {
+            id: "a".into(),
+            title: "A".into(),
+            license: "CC0 1.0".into(),
+            thumb: "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/thumbs/a.jpg".into(),
+            file: "https://raw.githubusercontent.com/Hamido212/kumo-wallpapers/main/pictures/a.jpg".into(),
+            sha256: sum.into(),
+            ..Entry::default()
+        };
+        assert!(usable(&mirror(&"ab".repeat(32))) && !usable(&mirror("")));
     }
 
     #[test]
