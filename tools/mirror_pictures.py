@@ -2,7 +2,7 @@
 
     python tools/mirror_pictures.py fetch                download each original once into target/mirror-src/
     python tools/mirror_pictures.py build [--mirror DIR] write pictures/, thumbs/pictures/, pictures/items.json,
-                                                         CREDITS.md and LICENSES/ into the mirror
+                                                         CREDITS.md, README.md and LICENSES/ into the mirror
     python tools/mirror_pictures.py credits [--mirror DIR]
                                                          write CREDITS.md again (also lists loops/ and scenes/)
 
@@ -255,10 +255,46 @@ def build(args):
     (mirror / "pictures" / "items.json").write_text(json.dumps(items, ensure_ascii=False, indent=1) + "\n",
                                                    encoding="utf-8", newline="\n")
     licenses(mirror, {r["license"] for r in records})
+    (mirror / "README.md").write_text(README, encoding="utf-8", newline="\n")
     credits(mirror)
     total = sum(r["bytes"] for r in records)
     print(f"{len(records)} pictures, {total / 1e6:.1f} MB, largest {max(r['bytes'] for r in records) / 1e6:.2f} MB")
     return 0
+
+
+README = """# Kumo wallpapers
+
+Freely licensed wallpapers for the *Discover* tab of [Kumo](https://github.com/Hamido212/kumo), a free
+and open-source live wallpaper engine for Windows. Kumo lists these files in its online catalogue
+and downloads them from this repository when someone adds one to their library.
+
+* `pictures/`: desktop art and photographs from open-source projects (KDE Plasma, Fedora, Pop!_OS,
+  COSMIC, Ubuntu), with previews in `thumbs/pictures/`.
+* `loops/`: short animated loops (videos).
+* `scenes/`: 3D scenes in Kumo's `.kumo` format.
+
+Each folder has an `items.json` that names, for every file, its title, author, source, licence,
+the full credit line and what we changed (for example "resized from 5120x2880 to 3840x2160,
+converted from PNG to JPEG").
+
+## Licences
+
+**Every file keeps its own licence.** This repository as a whole has no single licence: each file
+is under the licence its `items.json` record and [CREDITS.md](CREDITS.md) name, and the full texts
+are in [LICENSES/](LICENSES/). Files under CC BY-SA 4.0 stay under CC BY-SA 4.0 in the changed form
+we publish here. We take only public domain works and works under CC0 1.0, CC BY 4.0, CC BY-SA 4.0
+or a permissive licence that the author applied; nothing NonCommercial or NoDerivatives. How we
+choose and check the files is described in Kumo's
+[docs/discover.md](https://github.com/Hamido212/kumo/blob/main/docs/discover.md).
+
+## Reporting a problem
+
+If you made one of these works and want it credited differently or removed, or you think a file
+should not be here, please open an issue in the
+[Kumo repository](https://github.com/Hamido212/kumo/issues) or write to the contact address in the
+[Impressum](https://kumo.hyos.tech/impressum) of the Kumo website. We take a file out of the
+catalogue at once while we look into it, and answer within 72 hours.
+"""
 
 
 def licenses(mirror, names):
