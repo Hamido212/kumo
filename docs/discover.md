@@ -143,7 +143,13 @@ we changed ("Changes: resized from 5120x2880 to 3840x2160, converted from PNG to
 | [Pop!_OS wallpapers](https://github.com/pop-os/wallpapers) (mirrored) | CC BY-SA 4.0 for the works the README lists under Kate Hazen (designed for System76) and Nick Nazzaro (commissioned by System76) | those works without the Pop!_OS logo, slogans or mascots; never the Unsplash photos | author, "Pop!_OS wallpapers (System76)", link, CC BY-SA 4.0, changes |
 | [COSMIC wallpapers](https://github.com/pop-os/cosmic-wallpapers) (mirrored) | CC BY 4.0 for the files the README marks "Source: System76" | System76's own picture, not the logo or the NASA/ESA pictures | "System76", link, CC BY 4.0, changes |
 | [Fedora backgrounds](https://github.com/fedoradesign/backgrounds) (mirrored) | CC BY-SA 4.0 (`Attribution` file of each release tag, and the package spec) | the default wallpapers of Fedora 33 to 43, day and night where they differ | "Fedora Design Team", release, link, CC BY-SA 4.0, changes |
-| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 entries only | community contest pictures whose file name the CC BY-SA 4.0 entry names exactly; no Canonical release artwork with mascot or logo, no CC0/Unsplash, 2.0 or 3.0 entries | title and author from the file name, "Ubuntu wallpapers", link, CC BY-SA 4.0, changes |
+| [Ubuntu wallpapers](https://launchpad.net/ubuntu/+source/ubuntu-wallpapers) (mirrored) | per file in `debian/copyright`; we take the CC-BY-SA-4.0 and CC0 entries only | community contest pictures whose file name the entry names exactly; no Canonical release artwork, no release mascots or logos, no Unsplash downloads, no 2.0 or 3.0 entries | title and author from the file name, "Ubuntu wallpapers", link, CC BY-SA 4.0, changes |
+
+**Fedora's licence files** disagree in one place: the `Attribution` file of every release tag, the
+repository's `COPYING` (the full CC BY-SA 4.0 International text) and the package spec
+(`License: CC-BY-SA-4.0`) all say 4.0, but `default/CC-BY-SA-4.0` holds the 3.0 Unported legal
+code under a "4.0" heading. We follow the three statements that name 4.0 with its URL; if the
+Fedora Design Team ever says otherwise, the Fedora items go.
 
 For ESA and ESO images the tool takes the 3840x2160 desktop wallpaper (`wallpaper_uhd`) if the
 site made one; else the larger of the publication JPEG and the large JPEG that is landscape, at
@@ -199,9 +205,11 @@ first; `python tools/catalog.py build --only smk` still runs it (it asks for 384
   painting). None is mirrored.
 * **GNOME backgrounds:** the module's `COPYING` says CC BY-SA 3.0 United States, and authors are
   named only inside the image files. Left out while 3.0 is excluded.
-* **Unsplash photos inside distribution packages** (Pop!_OS, Ubuntu's `Unsplash` and CC0 entries,
-  elementary OS): the Unsplash licence, or an old Unsplash CC0 grant we cannot check with the
-  photographer.
+* **Unsplash photos inside distribution packages** (Pop!_OS, Ubuntu's `Unsplash` entries and its
+  CC0 entries that are Unsplash downloads, elementary OS): the Unsplash licence, or an old Unsplash
+  CC0 grant we cannot check with the photographer.
+* **Release mascots and logos** in KDE, Pop!_OS, COSMIC and Ubuntu artwork: brand marks as the
+  subject, whatever the licence of the picture.
 * **Budgie backgrounds** (CC0): the repository does not record per file who made each photo and
   where it came from, which its own rules ask of submitters. Not taken for now.
 * **KDE wallpapers under LGPL-3** and **Ubuntu entries under CC BY-SA 2.0/3.0 or CC BY 2.0**: not on
