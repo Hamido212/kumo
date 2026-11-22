@@ -949,6 +949,18 @@
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/iryge-Anomaly.png?h=ubuntu/stonking"
   },
   {
+   "id": "ubuntu-london-eye-by-paul-daniell",
+   "source": "ubuntu",
+   "title": "London Eye",
+   "author": "Paul Daniell",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/London_Eye_by_Paul_Daniell.jpg?h=ubuntu/stonking",
+   "license": "CC0 1.0",
+   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/London_Eye_by_Paul_Daniell.jpg?h=ubuntu/stonking"
+  },
+  {
    "id": "ubuntu-luce-e-ombra-by-jacop02169",
    "source": "ubuntu",
    "title": "Luce e Ombra",
@@ -1274,6 +1286,18 @@
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/vale1ntin0omf-Electric_Veins_of_the_Storm.jpg?h=ubuntu/stonking"
   },
   {
+   "id": "ubuntu-voss-by-fortuneblues",
+   "source": "ubuntu",
+   "title": "Voss",
+   "author": "fortuneblues",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Voss_by_fortuneblues.jpg?h=ubuntu/stonking",
+   "license": "CC0 1.0",
+   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Voss_by_fortuneblues.jpg?h=ubuntu/stonking"
+  },
+  {
    "id": "ubuntu-water-of-leith-by-keanu-kerr",
    "source": "ubuntu",
    "title": "Water of Leith",
@@ -1284,6 +1308,18 @@
    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
    "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC-BY-SA-4.0)",
    "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Water_of_Leith_by_Keanu_Kerr.jpg?h=ubuntu/stonking"
+  },
+  {
+   "id": "ubuntu-yala-mountain-by-geza-radics",
+   "source": "ubuntu",
+   "title": "Yala Mountain",
+   "author": "Geza Radics",
+   "category": "photo",
+   "sourceUrl": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/Yala_mountain_by_Geza_Radics.jpg?h=ubuntu/stonking",
+   "license": "CC0 1.0",
+   "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+   "licenceEvidence": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/tree/debian/copyright?h=ubuntu/stonking (stanza License: CC0)",
+   "download": "https://git.launchpad.net/ubuntu/+source/ubuntu-wallpapers/plain/Yala_mountain_by_Geza_Radics.jpg?h=ubuntu/stonking"
   }
  ]
 }
