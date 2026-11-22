@@ -217,7 +217,7 @@ function building(b) {
   if (w > 14 && d > 14 && r() < 0.5) {
     const cx = x0 + 6 + Math.floor(r() * (w - 12)), cz = z0 + 6 + Math.floor(r() * (d - 12));
     for (let y = top; y < top + 9; y++) for (let z = -4; z <= 4; z++) for (let x = -4; x <= 4; x++) {
-      if (x * x + z * z <= (y < top + 3 ? 4 : 15)) world.set(cx + x, y, cz + z, y < top + 3 ? 0x3a3030 : y === top + 8 ? 0x4a3a34 : 0x5c4a40);
+      if (x * x + z * z <= (y < top + 3 ? 4 : 15)) world.set(cx + x, y, cz + z, y < top + 3 ? 0x34363c : y === top + 8 ? 0x5a5e68 : 0x4a5058);
     }
   }
   if (b.mast) {
@@ -420,11 +420,34 @@ function islands() {
     const sc = 0.8 + rand() * 0.45;
     s.object({
       mesh: meshes[i % 2], cast: false, receive: false, scale: v3([sc, sc, sc]), rotY: Math.round(rand() * 6.28 * 1e4) / 1e4,
-      orbit: { angle: (i / 5) * Math.PI * 2 + rand() * 0.5, radius: 200 + rand() * 70, y: -24 + rand() * 40, speed: 0.004 + rand() * 0.002, wobble: 2 },
+      orbit: { angle: (i / 5) * Math.PI * 2 + rand() * 0.5, radius: 200 + rand() * 70, y: -95 + rand() * 50, speed: 0.004 + rand() * 0.002, wobble: 2 },
     });
   }
 }
 islands();
+
+// rain: the engine has no rain, but its waterfall shader draws streaks that run down a sheet.
+// Many thin, tall sheets (two crossed at each spot) make falling rain; the sheets reach below
+// the ground, where the shader fades them out.
+{
+  const pos = [], col = [], nrm = [], idx = [];
+  const W = 0.045;
+  // v runs from 1 at the top only down to 0.6 at the street, so the shader's fade never starts
+  const V_LOW = 153;
+  for (let i = 0; i < 170; i++) {
+    const x = (rand() * 2 - 1) * HALF * SCALE * 0.8, z = (rand() * 2 - 1) * HALF * SCALE * 0.8;
+    const top = 14 + rand() * 18, bottom = SCALE;
+    for (const [dx, dz] of [[W, 0], [0, W]]) {
+      const b = pos.length / 3;
+      pos.push(x - dx, top, z - dz, x + dx, top, z + dz, x + dx, bottom, z + dz, x - dx, bottom, z - dz);
+      col.push(0, 255, 0, 0, 255, 255, 0, 0, 255, V_LOW, 0, 0, 0, V_LOW, 0, 0); // r = across, g = v
+      for (let k = 0; k < 4; k++) nrm.push(0, 0, 127, 0);
+      idx.push(b, b + 1, b + 2, b, b + 2, b + 3); // the pass draws both sides
+    }
+  }
+  const mesh = s.addMesh('rain', { pos: new Float32Array(pos), nrm: new Int8Array(nrm), col: new Uint8Array(col), idx: new Uint32Array(idx) });
+  m.waterfall = { mesh, x: 0, y: -1e6, z0: 0, z1: 0, color: lin(0x3a4658), spray: lin(0xffffff) };
+}
 
 // overcast by day, violet haze at night
 const NIGHT = { zen: 0x060816, hor: 0x2a1840, gnd: 0x140e22, key: 0.7, keyC: 0x8a9ad8, hemiS: 0x4a5a8a, hemiG: 0x2a1c34, hemiI: 1.3, glow: 1, stars: 0.25, exp: 1.2 };
