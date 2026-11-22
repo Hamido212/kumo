@@ -465,7 +465,7 @@ mod tests {
             assert!(item.builtin && item.credit.is_empty() && item.file.is_empty());
             assert!(item.scene_bytes().is_err(), "{} is not a scene", item.id);
             assert_eq!(&b.thumb[..3], [0xFF, 0xD8, 0xFF], "{}: the thumbnail is not a JPEG", b.id);
-            assert!(b.thumb.len() > 5000, "{}: the thumbnail is a placeholder", b.id);
+            assert!(b.thumb.len() > 5000, "{}: the thumbnail is too small to be a real one", b.id);
         }
     }
 

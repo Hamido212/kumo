@@ -30,7 +30,7 @@ enum Content {
     /// `max` is the screen size the picture was scaled for, `srv` only exists while drawing
     Image { path: std::path::PathBuf, srv: Option<ID3D11ShaderResourceView>, w: u32, h: u32, max: (u32, u32) },
     Video { video: Box<crate::video::Video> },
-    /// a shader wallpaper: its pixel shader, constant buffer and clock
+    /// a shader wallpaper: its pixel shader, constant buffer, noise texture and clock
     Shader { fx: Animation },
 }
 
@@ -410,7 +410,7 @@ impl App {
             match &mut p.content {
                 Content::Scene { renderer, .. } => renderer.release(),
                 Content::Image { srv, .. } => *srv = None,
-                // an animation holds no textures, its target went with the others above
+                // an animation keeps only its 256 kB noise texture; its target went with the others
                 Content::Video { .. } | Content::Shader { .. } => {}
             }
         }
