@@ -13,7 +13,7 @@ Website: [kumo.hyos.tech](https://kumo.hyos.tech) · Deutsche Kurzanleitung: [we
 
 ## Download
 
-1. Download `Kumo-Setup-1.1.0.exe` from the [releases page](../../releases/latest).
+1. Download `Kumo-Setup-1.2.0.exe` from the [releases page](../../releases/latest).
 2. Close Lively or Wallpaper Engine if they are running. Two wallpaper programs get in each
    other's way.
 3. Double-click the file. Kumo is not signed yet, so Windows warns about it:
@@ -90,10 +90,10 @@ its own copy of textures on top of that.
   pictures
 * The same wallpaper everywhere, or a different one per screen, or none on a screen
 * Add files by dragging them into the window
-* Discover: free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, and (in versions
-  after 1.1.0) desktop art from KDE, Fedora, Pop!_OS and Ubuntu, video loops and 3D scenes that we
-  mirror on GitHub, each with its source and licence, added to the library with one click
-  (optional, goes online only after you agree)
+* Discover: free wallpapers from NASA, ESA, ESO and the Cleveland Museum of Art, and desktop art
+  from KDE, Fedora, Pop!_OS and Ubuntu, video loops and 3D scenes that we mirror on GitHub, each
+  with its source and licence, added to the library with one click (optional, goes online only
+  after you agree)
 * Time of day for 3D scenes and animations: your clock, a fixed time or time-lapse
 * Fit (fill, fit, stretch) and playback speed for videos and pictures, speed and colours for
   animations
@@ -237,7 +237,7 @@ scene shows.
 
 ## Kurzanleitung (Deutsch)
 
-1. `Kumo-Setup-1.1.0.exe` von der [Release-Seite](../../releases/latest) herunterladen.
+1. `Kumo-Setup-1.2.0.exe` von der [Release-Seite](../../releases/latest) herunterladen.
 2. Lively oder Wallpaper Engine beenden, falls sie laufen.
 3. Die Datei doppelklicken. Kumo ist noch nicht signiert, deshalb warnt Windows:
    * Im Browser **Behalten** wählen.
