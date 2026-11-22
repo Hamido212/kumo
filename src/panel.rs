@@ -373,7 +373,7 @@ fn fill_detail(app: &PanelWindow, ctx: &mut Ctx) {
             Kind::Scene => tr.t("ca. 55–75 MB gesamt", "about 55–75 MB in total"),
             Kind::Video => tr.t("ca. +30–60 MB", "about +30–60 MB"),
             Kind::Image => tr.t("ca. 25 MB gesamt, 0 % CPU", "about 25 MB in total, 0 % CPU"),
-            Kind::Shader => tr.t("ca. 35 MB gesamt", "about 35 MB in total"),
+            Kind::Shader => tr.t("ca. 40–50 MB gesamt", "about 40–50 MB in total"),
         }
         .into(),
     );

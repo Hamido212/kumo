@@ -1,9 +1,9 @@
 // Star Drift: stars stream slowly out of a point right of centre, as if the view drifted through
-// space. Ten layers of stars sit at depths that cycle from far to near; a star fades in far away
+// space. Eight layers of stars sit at depths that cycle from far to near; a star fades in far away
 // and out again before it would move fast, so nothing ever rushes past, and each pass of a layer
 // brings new stars. Behind them lie a haze of gas and a fine dust of distant stars.
 
-#define LAYERS 10
+#define LAYERS 8
 #define VANISH float2(0.2, 0.05)
 #define CELL 0.6
 
@@ -21,8 +21,8 @@ float3 effect(float2 p, float t) {
   c += lerp(hazeA(), hazeB(), ss(-0.5, 0.5, gnoise(hq * 0.7 + 9.0))) * haze * 0.02;
   // a far galaxy's band across the sky, with dark lanes of dust in it
   float across = dot(hq, float2(0.5, 0.866)) + 0.12 * gnoise(hq * 1.1 + 4.0);
-  float lane = ss(0.0, 0.45, fbm3(mul(float2x2(0.5, 0.866, -0.866, 0.5), hq) * float2(1.2, 3.5) + 6.0));
-  float glow = exp(-across * across * 7.0) * max(0.5 + 0.5 * fbm3(hq * 2.4 + 1.0), 0.0) * (1.0 - 0.8 * lane);
+  float lane = ss(0.0, 0.35, gnoise(mul(float2x2(0.5, 0.866, -0.866, 0.5), hq) * float2(1.8, 2.6) + 6.0));
+  float glow = exp(-across * across * 7.0) * max(0.5 + 0.8 * gnoise(hq * 2.4 + 1.0), 0.0) * (1.0 - 0.8 * lane);
   c += lerp(hazeB(), float3(0.60, 0.55, 0.50), 0.45) * glow * 0.11;
 
   // fine dust of distant stars, turning with the haze

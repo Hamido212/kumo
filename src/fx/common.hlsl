@@ -40,18 +40,17 @@ uint pcg(uint v) {
 }
 
 uint hashu(int2 c) { return pcg(asuint(c.x) + pcg(asuint(c.y))); }
-uint hashu3(int3 c) { return pcg(asuint(c.x) + pcg(asuint(c.y) + pcg(asuint(c.z)))); }
 
 float u01(uint h) { return float(h >> 8) * (1.0 / 16777216.0); }
 
-// 0..1 per integer cell
-float hash(float2 cell) { return u01(hashu(int2(floor(cell)))); }
-float2 hash2(float2 cell) { uint h = hashu(int2(floor(cell))); return float2(u01(h), u01(pcg(h))); }
-// three numbers from one hash: two of 10 bits (positions), one of 12 bits
-float3 hash3(float2 cell) {
-  uint h = hashu(int2(floor(cell)));
-  return float3(h & 1023u, (h >> 10) & 1023u, h >> 20) * float3(1.0 / 1023.0, 1.0 / 1023.0, 1.0 / 4095.0);
-}
+Texture2D noiseTex : register(t0);
+SamplerState noiseSmp : register(s0); // point, wrap
+
+// random numbers 0..1 per integer cell, read from the noise texture (repeats every 256 cells,
+// which no star field or row of trees here ever shows)
+float4 cellRandom(float2 cell) { return noiseTex.Load(int3(int2(floor(cell)) & 255, 0)); }
+float2 hash2(float2 cell) { return cellRandom(cell).xy; }
+float3 hash3(float2 cell) { return cellRandom(cell).xyz; }
 
 // ---------------------------------------------------------------- noise
 //
@@ -60,9 +59,6 @@ float3 hash3(float2 cell) {
 // than hashing them (integer multiplies are slow on many integrated GPUs); the interpolation
 // stays in full float precision, so even very soft noise shows no steps. Channels: r and g
 // gradient x and y, b values, a 1D gradients.
-
-Texture2D noiseTex : register(t0);
-SamplerState noiseSmp : register(s0); // point, wrap
 
 // the four corners of cell i in Gather order: x (0,1), y (1,1), z (1,0), w (0,0)
 float2 cellUv(float2 i) { return (i + 1.0) * (1.0 / 256.0); }

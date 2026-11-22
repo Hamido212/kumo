@@ -30,11 +30,11 @@ macro_rules! effect {
 
 /// Every shader wallpaper; library.rs lists the same ids.
 pub static EFFECTS: &[Effect] = &[
-    effect!("northern-lights", 0.6),
+    effect!("northern-lights", 0.5),
     effect!("neon-horizon", 0.8),
-    effect!("nebula-drift", 0.6),
+    effect!("nebula-drift", 0.55),
     effect!("midnight-silk", 0.5),
-    effect!("star-drift", 0.75),
+    effect!("star-drift", 0.6),
     effect!("ocean-swell", 0.6),
 ];
 
