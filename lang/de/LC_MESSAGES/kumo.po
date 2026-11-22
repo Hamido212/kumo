@@ -72,6 +72,9 @@ msgstr "In der Bibliothek"
 msgid "Use"
 msgstr "Verwenden"
 
+msgid "Credits"
+msgstr "Quellenangabe"
+
 msgid "Open source page"
 msgstr "Quellseite öffnen"
 
@@ -146,9 +149,6 @@ msgstr "Bildschirm {}"
 
 msgid "Remove"
 msgstr "Entfernen"
-
-msgid "Credits"
-msgstr "Quellenangabe"
 
 msgid "Changes show on the desktop right away."
 msgstr "Änderungen werden sofort auf dem Desktop übernommen."

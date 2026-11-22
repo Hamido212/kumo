@@ -775,6 +775,16 @@ fn installed(items: &[Item]) -> HashMap<&str, &Item> {
 
 type Download = (String, Arc<AtomicBool>, f32);
 
+/// The whole attribution line for the tile's menu: the catalogue's own, else title, author and
+/// licence put together.
+fn full_credit(e: &Entry) -> String {
+    match (e.credit.trim(), e.author.trim()) {
+        ("", "") => format!("{}. {}.", e.title.trim(), e.license.trim()),
+        ("", author) => format!("{}, {author}. {}.", e.title.trim(), e.license.trim()),
+        (credit, _) => credit.to_string(),
+    }
+}
+
 fn make_tile(e: &Entry, item: Option<&Item>, shown: &[String], download: Option<&Download>, tr: &Tr, thumb: Option<Image>) -> crate::DiscoverTile {
     let on = item.map(|it| screens_showing(shown, &it.id)).unwrap_or_default();
     let dl = download.filter(|d| d.0 == e.id);
@@ -782,6 +792,7 @@ fn make_tile(e: &Entry, item: Option<&Item>, shown: &[String], download: Option<
         id: e.id.as_str().into(),
         title: e.title.as_str().into(),
         credit: credit_line(e).into(),
+        full_credit: full_credit(e).into(),
         meta: entry_meta(e, tr.0).into(),
         kind: kind_index(e.kind),
         has_thumb: thumb.is_some(),
@@ -1732,6 +1743,9 @@ mod tests {
         assert_eq!(entry_meta(&video, false), "1080p · 38.0 MB");
         assert_eq!(entry_meta(&video, true), "1080p · 38,0 MB");
         assert_eq!(credit_line(&video), "CC0 1.0 · NASA SVS");
+        assert_eq!(full_credit(&video), "v, NASA SVS. CC0 1.0.");
+        let credited = Entry { credit: " “Carina”. Credit: ESA/Hubble. CC BY 4.0. ".into(), ..video.clone() };
+        assert_eq!(full_credit(&credited), "“Carina”. Credit: ESA/Hubble. CC BY 4.0.");
         let picture = Entry { width: 3400, height: 2270, bytes: 2_345_678, ..entry("p", Kind::Image, "") };
         assert_eq!(entry_meta(&picture, false), "3400 × 2270 · 2.2 MB");
         assert_eq!(credit_line(&picture), "CC0 1.0");
