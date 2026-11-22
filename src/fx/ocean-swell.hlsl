@@ -71,7 +71,8 @@ float3 effect(float2 p, float t) {
   if (d.y >= 0.0) {
     c = skyColor(d);
     float sd = dot(d, s);
-    c += sunColor() * ss(0.99984, 0.99992, sd) * 5.0 * sunUp;
+    // the disc sinks into the haze over the water instead of ending at a hard line
+    c += sunColor() * ss(0.99984, 0.99992, sd) * 5.0 * sunUp * ss(0.0, 0.03, d.y);
     float md = dot(d, moonDir());
     c += float3(0.9, 0.92, 1.0) * ss(0.99988, 0.99994, md) * 0.9 * NIGHT;
     c += stars(p) * NIGHT * ss(0.02, 0.2, d.y);
